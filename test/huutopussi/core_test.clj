@@ -48,6 +48,13 @@
                         (pick-card "7" :hearts)
                         (pick-card "Q" :hearts)]]
       (is (= ["JH" "QH"] (map h/print-card (h/possible-cards cards player-cards nil))))))
+  (testing "If multiple same suit cards but all are lower value than highest played, player can choose any of the same suit cards"
+    (let [cards [(pick-card "6" :hearts)
+                 (pick-card "8" :hearts)
+                 (pick-card "A" :hearts)]
+          player-cards [(pick-card "7" :hearts)
+                        (pick-card "Q" :hearts)]]
+      (is (= ["7H" "QH"] (map h/print-card (h/possible-cards cards player-cards nil))))))
   (testing "If no same suit cards, player must choose trump suit card"
     (let [cards [(pick-card "6" :hearts)
                  (pick-card "8" :hearts)
@@ -63,4 +70,12 @@
           player-cards [(pick-card "J" :diamonds)
                         (pick-card "J" :clubs)
                         (pick-card "6" :clubs)]]
-      (is (= ["JC"] (map h/print-card (h/possible-cards cards player-cards :clubs)))))))
+      (is (= ["JC"] (map h/print-card (h/possible-cards cards player-cards :clubs))))))
+  (testing "If no same suit cards and other player has played trump card which is higher than player has she can play any trump card"
+    (let [cards [(pick-card "6" :hearts)
+                 (pick-card "8" :hearts)
+                 (pick-card "9" :clubs)]
+          player-cards [(pick-card "J" :diamonds)
+                        (pick-card "7" :clubs)
+                        (pick-card "6" :clubs)]]
+      (is (= ["7C" "6C"] (map h/print-card (h/possible-cards cards player-cards :clubs)))))))

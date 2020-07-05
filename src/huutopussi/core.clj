@@ -41,15 +41,17 @@
         trump-card-played? (= trump-suit (:suit winning-card))
         suit-matches #(= %1 (:suit %2))
         same-suit-cards (filter (partial suit-matches round-suit) player-cards)
+        higher-same-suit-cards (filter #(> (:value %) (:value winning-card)) same-suit-cards)
         trump-suit-cards (if trump-suit
                            (filter (partial suit-matches trump-suit) player-cards)
-                           [])]
+                           [])
+        higher-trump-suit-cards (filter #(> (:value %) (:value winning-card)) trump-suit-cards)]
     (cond
-      (seq same-suit-cards) (if trump-card-played?
-                                   same-suit-cards
-                                   (filter #(> (:value %) (:value winning-card)) same-suit-cards))
-      (seq trump-suit-cards) (if trump-card-played?
-                               (filter #(> (:value %) (:value winning-card)) trump-suit-cards)
+      (seq same-suit-cards) (if (or trump-card-played? (empty? higher-same-suit-cards))
+                              same-suit-cards
+                              higher-same-suit-cards)
+      (seq trump-suit-cards) (if (and trump-card-played? (seq higher-trump-suit-cards))
+                               higher-trump-suit-cards
                                trump-suit-cards)
       :else player-cards)))
 
