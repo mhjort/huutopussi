@@ -55,9 +55,55 @@
                                trump-suit-cards)
       :else player-cards)))
 
+(defn choose-card [round-cards player-cards]
+  (first (possible-cards round-cards player-cards nil)))
+
+;TODO better impl for whole of this
+(defn find-index [pred vec]
+  (reduce-kv
+    (fn [_ k v]
+      (when (pred v)
+        (reduced k)))
+    nil
+    vec))
+
+(defn- play-round [players start-player]
+  (let [[first-part second-part] (split-at start-player players)
+        cards-in-play-order (concat second-part first-part)
+        round-cards (loop [played-cards []
+                           players-left cards-in-play-order]
+                      (if (seq players-left)
+                        (recur (conj played-cards (choose-card played-cards (first players-left)))
+                               (rest players-left))
+                        played-cards))
+        win-card (winning-card round-cards nil)
+        win-player (find-index #(some (partial = win-card) %) (vec players))]
+    {:winning-card (winning-card round-cards nil)
+     :winning-player win-player
+     :trick-cards round-cards}))
+
 ;(let [deck (card-deck)
-;      [player1 player2 player3 player4] (partition 9 (shuffle deck))]
-;  (map print-card player1))
+;      shuffled-cards (partition 9 (shuffle deck))]
+;  (play-round shuffled-cards 0))
+
+(defn- play-game [shuffled-cards]
+  (loop [players (mapv (fn [cards] {:cards cards :tricks []})
+                        shuffled-cards)
+         start-player 0]
+    (if (seq (:cards (first players)))
+      (let [{:keys [winning-player trick-cards]} (play-round (map :cards players) start-player)
+            updated-players (as-> players $
+                              (update-in $ [winning-player :tricks] #(conj % trick-cards))
+                              (mapv (fn [player played-card]
+                                     (update player :cards #(remove (partial = played-card) %)))
+                                   $ trick-cards))]
+        (recur updated-players 0))
+      players)))
+
+
+;(let [deck (card-deck)
+;      shuffled-cards (partition 9 (shuffle deck))]
+;  (play-game shuffled-cards))
 
 (let [cards [(pick-card "6" :hearts)
              (pick-card "8" :hearts)
