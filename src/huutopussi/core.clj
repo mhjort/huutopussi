@@ -1,6 +1,7 @@
-(ns huutopussi.core)
+(ns huutopussi.core
+  (:require [clojure.string :as string]))
 
-(defn- card-deck []
+(defn card-deck []
   (let [card-value-and-text (fn [i]
                               (condp = i
                                 10 [14 "10"]
@@ -15,18 +16,15 @@
                   {:suit suit :value final-value :text text}))]
     cards))
 
-(defn- print-card [{:keys [text suit]}]
-  (str text (apply str (take 1 (name suit)))))
+(defn print-card [{:keys [text suit]}]
+  (str text (string/upper-case (apply str (take 1 (name suit))))))
 
-(let [deck (card-deck)
-      [player1 player2 player3 player4] (partition 9 (shuffle deck))]
-  (map print-card player1))
 
 (defn- pick-card [text suit]
   (first (filter #(and (= text (:text %))
                        (= suit (:suit %))) (card-deck))))
 
-(defn- winning-card [cards trump-suit]
+(defn winning-card [cards trump-suit]
   (let [round-suit (:suit (first cards))
         suit-matches #(= %1 (:suit %2))
         trump-suit-cards (if trump-suit
@@ -37,14 +35,43 @@
                           (filter (partial suit-matches round-suit) cards))]
     (first (sort-by :value #(compare %2 %1) potential-cards))))
 
-(defn- possible-cards [round-cards player-cards]
-  player-cards)
+(defn possible-cards [round-cards player-cards trump-suit]
+  (let [round-suit (:suit (first round-cards))
+        winning-card (winning-card round-cards trump-suit)
+        trump-card-played? (= trump-suit (:suit winning-card))
+        suit-matches #(= %1 (:suit %2))
+        same-suit-cards (filter (partial suit-matches round-suit) player-cards)
+        trump-suit-cards (if trump-suit
+                           (filter (partial suit-matches trump-suit) player-cards)
+                           [])]
+    (cond
+      (seq same-suit-cards) (if trump-card-played?
+                                   same-suit-cards
+                                   (filter #(> (:value %) (:value winning-card)) same-suit-cards))
+      (seq trump-suit-cards) (if trump-card-played?
+                               (filter #(> (:value %) (:value winning-card)) trump-suit-cards)
+                               trump-suit-cards)
+      :else player-cards)))
+
+;(let [deck (card-deck)
+;      [player1 player2 player3 player4] (partition 9 (shuffle deck))]
+;  (map print-card player1))
 
 (let [cards [(pick-card "6" :hearts)
              (pick-card "8" :hearts)
+             (pick-card "9" :hearts)]
+      player-cards [(pick-card "J" :hearts)
+                    (pick-card "Q" :hearts)]]
+  ;(winning-card cards nil)
+  (possible-cards cards player-cards nil))
+(let [cards [(pick-card "6" :hearts)
+             (pick-card "8" :hearts)
              (pick-card "9" :hearts)
-             (pick-card "A" :hearts)]]
-  (winning-card cards nil))
+             (pick-card "A" :hearts)]
+      player-cards [(pick-card "J" :clubs)
+                    (pick-card "Q" :clubs)]]
+  (winning-card cards nil)
+  (possible-cards cards player-cards nil))
 
 (let [cards [(pick-card "6" :hearts)
              (pick-card "8" :hearts)
@@ -55,5 +82,9 @@
 (let [cards [(pick-card "6" :hearts)
              (pick-card "8" :hearts)
              (pick-card "A" :clubs)
-             (pick-card "6" :clubs)]]
-  (winning-card cards :clubs))
+             (pick-card "6" :clubs)]
+      player-cards [(pick-card "6" :clubs)
+                    (pick-card "J" :clubs)
+                    (pick-card "Q" :diamonds)]]
+  (winning-card cards :clubs)
+  (possible-cards cards player-cards :clubs))
