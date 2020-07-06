@@ -67,11 +67,13 @@
     nil
     vec))
 
+(defn- cards-in-play-order [cards start-index]
+  (let [[first-part second-part] (split-at start-index cards)]
+      (concat second-part first-part)))
+
 (defn- play-round [players start-player]
-  (let [[first-part second-part] (split-at start-player players)
-        cards-in-play-order (concat second-part first-part)
-        round-cards (loop [played-cards []
-                           players-left cards-in-play-order]
+  (let [round-cards (loop [played-cards []
+                           players-left (cards-in-play-order players start-player)]
                       (if (seq players-left)
                         (recur (conj played-cards (choose-card played-cards (first players-left)))
                                (rest players-left))
@@ -80,24 +82,24 @@
         win-player (find-index #(some (partial = win-card) %) (vec players))]
     {:winning-card (winning-card round-cards nil)
      :winning-player win-player
-     :trick-cards round-cards}))
+     :trick-cards (map #(some (set %) round-cards) players)}))
 
 ;(let [deck (card-deck)
 ;      shuffled-cards (partition 9 (shuffle deck))]
-;  (play-round shuffled-cards 0))
+;  (play-round shuffled-cards 1))
 
 (defn- play-game [shuffled-cards]
   (loop [players (mapv (fn [cards] {:cards cards :tricks []})
-                        shuffled-cards)
+                       shuffled-cards)
          start-player 0]
     (if (seq (:cards (first players)))
       (let [{:keys [winning-player trick-cards]} (play-round (map :cards players) start-player)
             updated-players (as-> players $
                               (update-in $ [winning-player :tricks] #(conj % trick-cards))
                               (mapv (fn [player played-card]
-                                     (update player :cards #(remove (partial = played-card) %)))
-                                   $ trick-cards))]
-        (recur updated-players 0))
+                                      (update player :cards #(remove (partial = played-card) %)))
+                                    $ trick-cards))]
+        (recur updated-players winning-player))
       players)))
 
 
