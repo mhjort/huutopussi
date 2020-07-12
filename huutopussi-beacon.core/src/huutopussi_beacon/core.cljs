@@ -1,12 +1,24 @@
 (ns ^:figwheel-hooks huutopussi-beacon.core
-  (:require
-   [goog.dom :as gdom]
-   [reagent.dom :as rdom]
-   [reagent.core :as reagent :refer [atom]]))
+  (:require-macros [cljs.core.async.macros :refer [go]])
+  (:require [cljs-http.client :as http]
+            [cljs.core.async :refer [<!]]
+            [goog.dom :as gdom]
+            [reagent.dom :as rdom]
+            [reagent.core :as reagent :refer [atom]]))
 
 (println "This text is printed from src/huutopussi_beacon/core.cljs. Go ahead and edit it and see reloading in action.")
 
+(println "Current url:" (str (-> js/window .-location)))
+
 (defn multiply [a b] (* a b))
+
+(defonce dev-mode? (= "http://localhost:9500/" (str (-> js/window .-location))))
+
+(println "Dev mode?" dev-mode?)
+
+(defonce api-url (if dev-mode?
+                   "http://localhost:3000/api"
+                   "/api"))
 
 (defonce app-state (atom {:player-name nil
                           :state :enter-name}))
@@ -18,13 +30,21 @@
   [:div
    [:p (str "Finding match for player: " (:player-name @app-state))]])
 
+(defn- start-match-finding []
+  (println "Finding match")
+  (swap! app-state assoc :state :finding-match)
+  (go (let [response (<! (http/get (str api-url "/find-match/" (:player-name @app-state))
+                                   {:with-credentials? false}))]
+        (prn (:status response)))))
+
 (defn match-start []
   [:div
    [:label "Enter your name"]
    [:input {:type "text"
-           ; :value (:player-name @app-state)}]
-           :on-change #(swap! app-state assoc :player-name (-> % .-target .-value))}]
-   [:button {:on-click #(swap! app-state assoc :state :finding-match)} "Find Match!"]])
+            ; :value (:player-name @app-state)}]
+            :on-change #(swap! app-state assoc :player-name (-> % .-target .-value))}]
+   [:button {:on-click start-match-finding} "Find Match!"]])
+   ;[:button {:on-click #(println "Clicked")} "Find Match!"]])
 
 (defn home []
   [:div

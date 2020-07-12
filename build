@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+
+set -u
+
+cd huutopussi-beacon.core
+lein fig:min
+cp resources/public/cljs-out/dev-main.js ../beacon-server/resources/public
+cd -
