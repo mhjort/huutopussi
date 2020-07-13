@@ -1,1 +1,1 @@
-web: java $JVM_OPTS -cp target/huutopussi-beacon-standalone.jar
+web: java $JVM_OPTS -jar target/huutopussi-beacon-standalone.jar
