@@ -8,6 +8,7 @@
                  [ring-cors "0.1.13"]]
   :plugins [[lein-ring "0.12.5"]]
   :ring {:handler beacon-server.handler/app}
+  :uberjar-name "huutobussi-beacon-standalone.jar"
   :profiles
   {:dev {:dependencies [[javax.servlet/servlet-api "2.5"]
                         [ring/ring-mock "0.3.2"]]}})
