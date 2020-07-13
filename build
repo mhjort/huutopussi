@@ -4,5 +4,5 @@ set -u
 
 cd huutopussi-beacon.core
 lein fig:min
-cp resources/public/cljs-out/dev-main.js ../beacon-server/resources/public
+cp resources/public/cljs-out/dev-main.js ../resources/public
 cd -

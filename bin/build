@@ -1,6 +1,0 @@
-#!/usr/bin/env bash
-
-set -u
-
-cd beacon-server
-lein ring server

@@ -2,18 +2,18 @@
   (:require [clojure.string :as string]))
 
 (defn card-deck []
-  (let [card-value-and-text (fn [i]
+  (let [card-value-text-and-points (fn [i]
                               (condp = i
-                                10 [14 "10"]
-                                11 [11 "J"]
-                                12 [12 "Q"]
-                                13 [13 "K"]
-                                14 [15 "A"]
-                                [i (str i)]))
+                                10 [14 "10" 10]
+                                11 [11 "J" 2]
+                                12 [12 "Q" 3]
+                                13 [13 "K" 4]
+                                14 [15 "A" 11]
+                                [i (str i) 0]))
         cards (for [value (range 6 15)
                     suit [:hearts :clubs :spades :diamonds]]
-                (let [[final-value text] (card-value-and-text value)]
-                  {:suit suit :value final-value :text text}))]
+                (let [[final-value text points] (card-value-text-and-points value)]
+                  {:suit suit :value final-value :text text :points points}))]
     cards))
 
 (defn print-card [{:keys [text suit]}]
@@ -104,8 +104,9 @@
 
 
 ;(let [deck (card-deck)
-;      shuffled-cards (partition 9 (shuffle deck))]
-;  (play-game shuffled-cards))
+;      shuffled-cards (partition 9 (shuffle deck))
+;  tricks (map :tricks (play-game shuffled-cards))]
+;  (reduce + (map first tricks)))
 
 (let [cards [(pick-card "6" :hearts)
              (pick-card "8" :hearts)
