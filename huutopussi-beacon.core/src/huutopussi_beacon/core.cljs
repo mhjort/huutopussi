@@ -33,8 +33,9 @@
 (defn- start-match-finding []
   (println "Finding match")
   (swap! app-state assoc :state :finding-match)
-  (go (let [response (<! (http/get (str api-url "/find-match/" (:player-name @app-state))
-                                   {:with-credentials? false}))]
+  (go (let [response (<! (http/post (str api-url "/find-match")
+                                   {:json-params {:playerName (:player-name @app-state)}
+                                    :with-credentials? false}))]
         (prn (:status response)))))
 
 (defn match-start []
