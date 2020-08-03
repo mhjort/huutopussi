@@ -1,15 +1,16 @@
 (ns beacon-server.handler
   (:require [compojure.core :refer [defroutes GET POST]]
             [compojure.route :as route]
+            [beacon-server.matchmake :as matchmake]
             [ring.util.response :as resp]
             [ring.middleware.cors :refer [wrap-cors]]
             [ring.middleware.json :refer [wrap-json-response wrap-json-body]]
             [ring.middleware.defaults :refer [wrap-defaults api-defaults]]))
 
+(def matches (atom {}))
+
 (defn- find-match [{:keys [playerName]}]
-  (println "Finding match for" playerName)
-  {:id 1
-   :players [playerName]})
+  (matchmake/find-match matches playerName))
 
 (defroutes app-routes
   (GET "/" [] (resp/redirect "/index.html"))

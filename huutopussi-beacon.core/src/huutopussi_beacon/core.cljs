@@ -28,7 +28,9 @@
 
 (defn- match-finder []
   [:div
-   [:p (str "Finding match for player: " (:player-name @app-state))]])
+   [:p (str "Finding match for player: " (:player-name @app-state))]
+   (when-let [match (:match @app-state)]
+     [:p (str "Found match:" match)])])
 
 (defn- start-match-finding []
   (println "Finding match")
@@ -36,7 +38,9 @@
   (go (let [response (<! (http/post (str api-url "/find-match")
                                    {:json-params {:playerName (:player-name @app-state)}
                                     :with-credentials? false}))]
-        (prn (:status response)))))
+        (if (= 200 (:status response))
+          (swap! app-state assoc :match (:body response))
+          (throw (js/Error. (str "Match find failed with response: " response)))))))
 
 (defn match-start []
   [:div
