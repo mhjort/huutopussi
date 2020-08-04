@@ -12,11 +12,23 @@
                                                    (< player-count max-player-count)) player-counts))]
     (first match-id-and-player-count)))
 
+(defn get-match [matches id]
+  (when-let [match (get @matches id)]
+    (assoc match :id id)))
+
 (defn find-match [matches player]
   (println "Finding match for" player)
-  (let [[before after] (swap-vals! matches
-                                   #(let [id (or (match-id-with-player-count-less-than % 4)
+  (let [max-players-in-match 4
+        update-match (fn [new-player match]
+                       (let [status (if (= max-players-in-match (inc (count (:players match))))
+                                      :matched
+                                      :waiting)]
+                         (-> match
+                             (assoc :status status)
+                             (update :players conj new-player))))
+        [before after] (swap-vals! matches
+                                   #(let [id (or (match-id-with-player-count-less-than % max-players-in-match)
                                                  (rand-str 6))]
-                                      (update-in % [id :players] conj player)))
+                                      (update % id (partial update-match player))))
         [_ new-match _] (data/diff before after)]
-    new-match))
+    (get-match matches (first (keys new-match)))))
