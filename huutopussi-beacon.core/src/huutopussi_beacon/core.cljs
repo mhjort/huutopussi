@@ -1,14 +1,10 @@
 (ns ^:figwheel-hooks huutopussi-beacon.core
-  (:require-macros [cljs.core.async.macros :refer [go]])
+  (:require-macros [cljs.core.async.macros :refer [go go-loop]])
   (:require [cljs-http.client :as http]
-            [cljs.core.async :refer [<!]]
+            [cljs.core.async :refer [<! timeout]]
             [goog.dom :as gdom]
             [reagent.dom :as rdom]
             [reagent.core :as reagent :refer [atom]]))
-
-(println "This text is printed from src/huutopussi_beacon/core.cljs. Go ahead and edit it and see reloading in action.")
-
-(println "Current url:" (str (-> js/window .-location)))
 
 (defn multiply [a b] (* a b))
 
@@ -26,6 +22,17 @@
 (defn get-app-element []
   (gdom/getElement "app"))
 
+(defn- poll-match [match-id]
+  (go-loop []
+           (<! (timeout 500))
+           (let [url (str api-url "/match/" match-id)
+                 response (<! (http/get url {:with-credentials? false}))]
+             (if (= 200 (:status response))
+               (if (= "matched" (-> response :body :status))
+                 (println "Matched")
+                 (recur))
+               (throw (js/Error. (str "Match find failed with response: " response)))))))
+
 (defn- match-finder []
   [:div
    [:p (str "Finding match for player: " (:player-name @app-state))]
@@ -36,10 +43,12 @@
   (println "Finding match")
   (swap! app-state assoc :state :finding-match)
   (go (let [response (<! (http/post (str api-url "/find-match")
-                                   {:json-params {:playerName (:player-name @app-state)}
-                                    :with-credentials? false}))]
+                                    {:json-params {:playerName (:player-name @app-state)}
+                                     :with-credentials? false}))]
         (if (= 200 (:status response))
-          (swap! app-state assoc :match (:body response))
+          (let [{:keys [id] :as match} (:body response)]
+            (poll-match id)
+            (swap! app-state assoc :match match))
           (throw (js/Error. (str "Match find failed with response: " response)))))))
 
 (defn match-start []
@@ -49,7 +58,7 @@
             ; :value (:player-name @app-state)}]
             :on-change #(swap! app-state assoc :player-name (-> % .-target .-value))}]
    [:button {:on-click start-match-finding} "Find Match!"]])
-   ;[:button {:on-click #(println "Clicked")} "Find Match!"]])
+;[:button {:on-click #(println "Clicked")} "Find Match!"]])
 
 (defn home []
   [:div

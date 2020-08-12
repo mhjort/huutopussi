@@ -14,14 +14,17 @@
 
 (defroutes app-routes
   (GET "/" [] (resp/redirect "/index.html"))
+  (GET "/api/match/:id" [id] (resp/response (matchmake/get-match matches id)))
   (POST "/api/find-match" {:keys [body]} (resp/response (find-match body)))
   (route/resources "/")
   (route/not-found "Not Found"))
 
 (def app
   (-> app-routes
-     (wrap-defaults api-defaults)
+     ;Note! This should be first because middleware sets json content type header
+     ;only if there are no other content type headers already present
      (wrap-json-response)
-     (wrap-json-body {:keywords? true})
      (wrap-cors :access-control-allow-origin [#".*"]
-                :access-control-allow-methods [:get :post :options])))
+                :access-control-allow-methods [:get :post :options])
+     (wrap-defaults api-defaults)
+     (wrap-json-body {:keywords? true})))
