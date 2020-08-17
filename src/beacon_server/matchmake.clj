@@ -23,12 +23,16 @@
                        (let [status (if (= max-players-in-match (inc (count (:players match))))
                                       :matched
                                       :waiting)]
-                         (-> match
-                             (assoc :status status)
-                             (update :players conj new-player))))
+                         (cond-> match
+                           (nil? match) (assoc :declarer new-player)
+                           true (assoc :status status)
+                           true (update :players conj {:name new-player}))))
         [before after] (swap-vals! matches
                                    #(let [id (or (match-id-with-player-count-less-than % max-players-in-match)
                                                  (rand-str 6))]
                                       (update % id (partial update-match player))))
         [_ new-match _] (data/diff before after)]
     (get-match matches (first (keys new-match)))))
+
+(find-match (atom {}) "a")
+(find-match (atom {"1" {:declarer "a" :players ["a"]}}) "a")

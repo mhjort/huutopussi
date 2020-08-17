@@ -19,7 +19,6 @@
 (defn print-card [{:keys [text suit]}]
   (str text (string/upper-case (apply str (take 1 (name suit))))))
 
-
 (defn- pick-card [text suit]
   (first (filter #(and (= text (:text %))
                        (= suit (:suit %))) (card-deck))))
