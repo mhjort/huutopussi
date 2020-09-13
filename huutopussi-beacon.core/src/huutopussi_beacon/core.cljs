@@ -50,7 +50,6 @@
 
 (defn- get-cards [id player-name]
   (go (let [url (str api-url "/match/" id "/cards/" player-name)
-            _ (println "Calling url" url)
             response (<! (http/get url {:with-credentials? false}))]
         (if (= 200 (:status response))
           (:body response)
@@ -84,14 +83,13 @@
           _  (when am-i-declarer?
                _    (call-start-game id))
           _  (<! (wait-until-state id "started"))
-          cards (<! (get-cards id (:player-name @app-state)))]
+          cards (:hand-cards (<! (get-cards id (:player-name @app-state))))]
       (println "Got cards first time" cards)
       (swap! app-state assoc :state :started :cards cards :match-id id)
       (loop []
         (<! (timeout 500))
-        (let [cards (<! (get-cards id (:player-name @app-state)))]
-          (println "Got updated cards" cards)
-          (swap! app-state assoc :state :started :cards cards))
+        (let [{:keys [hand-cards current-trick-cards]} (<! (get-cards id (:player-name @app-state)))]
+          (swap! app-state assoc :state :started :cards hand-cards :trick-cards current-trick-cards))
         (recur)))))
 
 (defn- play-card [index]
@@ -111,6 +109,11 @@
                (for [[index card] (map-indexed vector (:cards @app-state))]
                  ^{:key card}[:img {:on-click (partial play-card index)
                                     :src (card-url card)
+                                    :width "225px"
+                                    :height "315px"}])
+               [:p "Current trick cards"]
+               (for [card (map :card (:trick-cards @app-state))]
+                 ^{:key card}[:img {:src (card-url card)
                                     :width "225px"
                                     :height "315px"}])]
      )])

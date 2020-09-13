@@ -10,7 +10,8 @@
   (let [match (get @matches id)]
     (when-not (= :started (:status match))
       (throw (Exception. "Match status should be started")))
-    (:hand-cards (first (filter #(= player-name (:player-id %)) (-> match :game-model :players))))))
+    {:hand-cards (:hand-cards (first (filter #(= player-name (:player-id %)) (-> match :game-model :players))))
+     :current-trick-cards (-> match :game-model :current-trick-cards)}))
 
 (defn winning-card [cards trump-suit]
   (let [round-suit (:suit (first cards))
