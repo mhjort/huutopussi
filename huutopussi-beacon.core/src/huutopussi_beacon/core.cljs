@@ -85,8 +85,22 @@
                _    (call-start-game id))
           _  (<! (wait-until-state id "started"))
           cards (<! (get-cards id (:player-name @app-state)))]
-      (println "Got cards" cards)
-      (swap! app-state assoc :state :started :cards cards))))
+      (println "Got cards first time" cards)
+      (swap! app-state assoc :state :started :cards cards :match-id id)
+      (loop []
+        (<! (timeout 500))
+        (let [cards (<! (get-cards id (:player-name @app-state)))]
+          (println "Got updated cards" cards)
+          (swap! app-state assoc :state :started :cards cards))
+        (recur)))))
+
+(defn- play-card [index]
+  (println "Playing card: " index)
+  (go (let [url (str api-url "/match/" (:match-id @app-state) "/play/" (:player-name @app-state) "/card/" index)
+            response (<! (http/put url {:with-credentials? false}))]
+        (if (= 200 (:status response))
+          (:body response)
+          (throw (js/Error. (str "Call to url " url " failed with response: " response)))))))
 
 (defn- show-match-status []
   [:div
@@ -94,8 +108,11 @@
      :finding-match [:p (str "Finding match for player: " (:player-name @app-state))]
      :matched [:p (str "Found match with players" (map :name (-> @app-state :match :players)))]
      :started [:div [:p (str "Started match with players" (map :name (-> @app-state :match :players)) "with cards:")]
-                (for [card (:cards @app-state)]
-                       [:img {:src (card-url card) :width "225px" :height "315px"}])]
+               (for [[index card] (map-indexed vector (:cards @app-state))]
+                 ^{:key card}[:img {:on-click (partial play-card index)
+                                    :src (card-url card)
+                                    :width "225px"
+                                    :height "315px"}])]
      )])
 
 (defn- show-match-start []

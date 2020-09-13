@@ -1,6 +1,7 @@
 (ns beacon-server.game
   (:require [beacon-server.model.deck :as deck]
             [clojure.core.async :refer [chan go go-loop <! <!! >!]]
+            [clojure.tools.logging :as log]
             ))
 
 (defn get-cards-for-player-name [matches id player-name]
@@ -42,36 +43,7 @@
                                trump-suit-cards)
       :else player-cards)))
 
-(defn choose-card [round-cards player-cards]
-  (first (possible-cards round-cards player-cards nil)))
-
-;TODO better impl for whole of this
-(defn find-index [pred vec]
-  (reduce-kv
-    (fn [_ k v]
-      (when (pred v)
-        (reduced k)))
-    nil
-    vec))
-
-(defn- cards-in-play-order [cards start-index]
-  (let [[first-part second-part] (split-at start-index cards)]
-      (concat second-part first-part)))
-
-(defn- play-round [players start-player]
-  (let [round-cards (loop [played-cards []
-                           players-left (cards-in-play-order players start-player)]
-                      (if (seq players-left)
-                        (recur (conj played-cards (choose-card played-cards (first players-left)))
-                               (rest players-left))
-                        played-cards))
-        win-card (winning-card round-cards nil)
-        win-player (find-index #(some (partial = win-card) %) (vec players))]
-    {:winning-card (winning-card round-cards nil)
-     :winning-player win-player
-     :trick-cards (map #(some (set %) round-cards) players)}))
-
-(defn- play-card [{:keys [current-round next-player] :as game-model} {:keys [card] :as player-card}]
+(defn- play-card [{:keys [next-player] :as game-model} {:keys [card]}]
   (let [updated-game-model (-> game-model
                                (update :current-trick-cards conj {:player next-player :card card})
                                (update-in [:players next-player :hand-cards] (fn [hand-cards]
@@ -102,7 +74,7 @@
                     :next-player 0
                     :current-trick-cards []
                     :players (mapv (fn [player-id cards]
-                                     (let [hand-cards (take cards-per-player cards)]
+                                     (let [hand-cards (vec (take cards-per-player cards))]
                                        {:player-id player-id
                                         :hand-cards hand-cards
                                         :possible-cards hand-cards}))
@@ -110,48 +82,53 @@
                                    shuffled-cards)}]
     game-model))
 
+(defn- start-game-loop [matches id]
+  (go-loop []
+           (let [match (get @matches id)
+                 game-model (:game-model match)
+                 next-player (:next-player game-model)
+                 input-channel (get-in match [:players next-player :input-channel])
+                 _ (log/info "Waiting for player" next-player "input from channel" input-channel)
+                 card (<! input-channel)
+                 _ (log/info "Got input card" card)
+                 updated-game-model (play-card game-model {:card card})]
+             (log/info "Updated model" updated-game-model)
+             (swap! matches #(update % id assoc :game-model updated-game-model))
+             (when-not (:win-card updated-game-model)
+               (recur)))))
+
 (defn start [matches id]
   (let [match (get @matches id)
         shuffled-cards (deck/shuffle-for-four-players (deck/card-deck))
+        players-with-input-channels (mapv (fn [player]
+                                            {:name (:name player) :input-channel (chan)})
+                                          (:players match))
         game-model (init-game (mapv :name (:players match)) shuffled-cards 9)]
-    (swap! matches #(update % id assoc :status :started :game-model game-model))
+    (swap! matches #(update % id assoc :status :started :game-model game-model :players players-with-input-channels))
+    (start-game-loop matches id)
     (get @matches id)))
 
-(let [shuffled-cards (deck/shuffle-for-four-players (deck/card-deck))
-      game-model (init-game ["a" "b" "c" "d"] shuffled-cards 2)
-      do-it (fn [{:keys [next-player players] :as game-model}]
-              (let [card-to-play (-> (nth players next-player) :possible-cards first)]
-                    (play-card game-model {:card card-to-play})))]
-  (-> game-model
-     (do-it)
-     (do-it)
-     (do-it)))
+(defn enter-card [matches id player card-index]
+  (let [match (get @matches id)
+        player-details (first (filter #(= player (:player-id %)) (-> match :game-model :players)))
+        card (get-in player-details [:hand-cards card-index])
+        input-channel (:input-channel (first (filter #(= player (:name %)) (:players match))))]
+    (log/info "Player" player "playing card" card "with input channel" input-channel)
+    (go (>! input-channel card))
+    {:ok true}))
+
+(enter-card (atom {"1" {:players [{:name "a" :input-channel (chan)}]
+                         :game-model {:players [{:player-id "a" :hand-cards ["A" "K"]}]}}}) "1" "a" (Integer/parseInt "1"))
+
+;(let [shuffled-cards (deck/shuffle-for-four-players (deck/card-deck))
+;      game-model (init-game ["a" "b" "c" "d"] shuffled-cards 2)
+;      do-it (fn [{:keys [next-player players] :as game-model}]
+;              (let [card-to-play (-> (nth players next-player) :possible-cards first)]
+;                    (play-card game-model {:card card-to-play})))]
+;  (-> game-model
+;     (do-it)
+;     (do-it)
+;     (do-it)))
      ;(do-it)))
    ;  (do-it)))
-
-;(let [input-chs [(mapv chan (range 4))
-;      game-loop (go-loop []
-;                         (let [input (<! input-ch)]
-;                           (println "LOL" input)))]
-;  (go (>! input-ch "A"))
-;  (<!! game-loop))
-
-
-;(let [match {:id "1" :players [{:name "A"}
-;                               {:name "B"}
-;                               {:name "C"}
-;                               {:name "D"}]}
-;      matches (atom {"1" match})]
-;  (start matches "1")
-;  (get-cards-for-player-name matches "1" "C"))
-
-
-;(let [input-ch (chan)
-;      game-loop (go-loop []
-;                         (let [input (<! input-ch)]
-;                           (println "LOL" input)))]
-;  (go (>! input-ch "A"))
-;  (<!! game-loop))
-
-
 
