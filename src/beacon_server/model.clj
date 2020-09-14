@@ -44,7 +44,7 @@
                                (update-in [:players next-player :hand-cards] (fn [hand-cards]
                                                                                (vec (remove #(= card %) hand-cards)))))
         possible-cards-for-next-player (fn [next-player]
-                                         (possible-cards (map :card (:current-trick-cards updated-game-model))
+                                         (possible-cards (mapv :card (:current-trick-cards updated-game-model))
                                                          (get-in updated-game-model [:players next-player :hand-cards])
                                                          nil))
         trick-ended? (= number-of-players (count (:current-trick-cards updated-game-model)))

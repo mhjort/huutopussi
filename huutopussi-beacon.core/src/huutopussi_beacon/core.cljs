@@ -48,16 +48,26 @@
         (<! (timeout 500))
         (let [{:keys [hand-cards
                       current-trick-cards
+                      possible-cards
                       current-round
                       win-card
                       next-player-name]} (<! (game-client/get-game-status id (:player-name @app-state)))]
           (swap! app-state assoc
                  :state :started
                  :cards hand-cards
+                 :possible-cards possible-cards
                  :current-round (inc current-round) ;Server round is zero based
                  :next-player-name next-player-name
                  :trick-cards current-trick-cards))
         (recur)))))
+
+(defn- try-to-play-card [card-index]
+  (let [card-to-play (nth (:cards @app-state) card-index)
+        is-possible-card? (boolean (some #{card-to-play} (:possible-cards @app-state)))]
+    (when-not is-possible-card?
+      (throw (js/Error.
+               (str "Card " card-to-play " is not one of the possible cards " (:possible-cards @app-state)))))
+  (game-client/play-card (:match-id @app-state) (:player-name @app-state) card-index)))
 
 (defn- show-match-status []
   [:div
@@ -72,10 +82,7 @@
                                              "It is your turn to choose card"
                                              ""))]
                (for [[index card] (doall (map-indexed vector (:cards @app-state)))]
-                 ^{:key card}[:img {:on-click (partial game-client/play-card
-                                                       (:match-id @app-state)
-                                                       (:player-name @app-state)
-                                                       index)
+                 ^{:key card}[:img {:on-click (partial try-to-play-card index)
                                     :src (card-url card)
                                     :width "225px"
                                     :height "315px"}])

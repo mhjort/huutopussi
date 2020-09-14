@@ -13,6 +13,7 @@
     {:current-round (:current-round game-model)
      :win-card (:current-round game-model)
      :next-player-name (:player-id (nth (:players game-model) (:next-player game-model)))
+     :possible-cards (:possible-cards (first (filter #(= player-name (:player-id %)) (:players game-model))))
      :hand-cards (:hand-cards (first (filter #(= player-name (:player-id %)) (:players game-model))))
      :current-trick-cards (:current-trick-cards game-model)}))
 
