@@ -16,7 +16,7 @@
 
 (defn- start-game [id]
   (let [started-match (game/start matches id)]
-    (println "Started match" started-match)
+    (log/info "Started match" started-match)
      (resp/response {:ok true})))
 
 (defn wrap-exception-handling
@@ -28,7 +28,6 @@
         (log/error e "Failure in request" request)
         {:status 500 :body "Server error"}))))
 
-
 (defroutes app-routes
   (GET "/" [] (resp/redirect "/index.html"))
   (GET "/api/match/:id" [id] (resp/response (matchmake/get-match matches id)))
@@ -36,7 +35,7 @@
   (POST "/api/match/:id/start" [id] (start-game id))
   (GET "/api/match/:id/cards/:player" [id player] (resp/response (game/get-cards-for-player-name matches id player)))
   (PUT "/api/match/:id/play/:player/card/:card-index" [id player card-index]
-       (resp/response (game/enter-card matches id player (Integer/parseInt card-index))))
+       (resp/response (game/play-card matches id player (Integer/parseInt card-index))))
   (route/resources "/")
   (route/not-found "Not Found"))
 

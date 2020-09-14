@@ -1,4 +1,4 @@
-(ns beacon-server.model.deck)
+(ns beacon-server.deck)
 
 (defn card-deck []
   (let [card-value-text-and-points (fn [i]
