@@ -41,13 +41,22 @@
           _  (when am-i-declarer?
                _    (game-client/call-start-game id))
           _  (<! (game-client/wait-until-state id "started"))
-          cards (:hand-cards (<! (game-client/get-cards id (:player-name @app-state))))]
+          cards (:hand-cards (<! (game-client/get-game-status id (:player-name @app-state))))]
       (println "Got cards first time" cards)
       (swap! app-state assoc :state :started :cards cards :match-id id)
       (loop []
         (<! (timeout 500))
-        (let [{:keys [hand-cards current-trick-cards]} (<! (game-client/get-cards id (:player-name @app-state)))]
-          (swap! app-state assoc :state :started :cards hand-cards :trick-cards current-trick-cards))
+        (let [{:keys [hand-cards
+                      current-trick-cards
+                      current-round
+                      win-card
+                      next-player-name]} (<! (game-client/get-game-status id (:player-name @app-state)))]
+          (swap! app-state assoc
+                 :state :started
+                 :cards hand-cards
+                 :current-round (inc current-round) ;Server round is zero based
+                 :next-player-name next-player-name
+                 :trick-cards current-trick-cards))
         (recur)))))
 
 (defn- show-match-status []
@@ -55,7 +64,13 @@
    (condp = (:state @app-state)
      :finding-match [:p (str "Finding match for player: " (:player-name @app-state))]
      :matched [:p (str "Found match with players" (map :name (-> @app-state :match :players)))]
-     :started [:div [:p (str "Started match with players" (map :name (-> @app-state :match :players)) "with cards:")]
+     :started [:div
+               [:p (str "Started match with players" (map :name (-> @app-state :match :players)))]
+               [:p (str "Current round: " (:current-round @app-state)
+                        ", waiting for player " (:next-player-name @app-state))]
+               [:p (str "Your hand cards." (if (= (:player-name @app-state) (:next-player-name @app-state))
+                                             "It is your turn to choose card"
+                                             ""))]
                (for [[index card] (doall (map-indexed vector (:cards @app-state)))]
                  ^{:key card}[:img {:on-click (partial game-client/play-card
                                                        (:match-id @app-state)

@@ -4,14 +4,17 @@
             [clojure.core.async :refer [chan go go-loop <! >!]]
             [clojure.tools.logging :as log]))
 
-(defn get-cards-for-player-name [matches id player-name]
+(defn get-game-status [matches id player-name]
   ;TODO Check that game has been started
   ;TODO We should create unique ids for players. Players should not know each others ids
-  (let [match (get @matches id)]
+  (let [{:keys [game-model] :as match} (get @matches id)]
     (when-not (= :started (:status match))
       (throw (Exception. "Match status should be started")))
-    {:hand-cards (:hand-cards (first (filter #(= player-name (:player-id %)) (-> match :game-model :players))))
-     :current-trick-cards (-> match :game-model :current-trick-cards)}))
+    {:current-round (:current-round game-model)
+     :win-card (:current-round game-model)
+     :next-player-name (:player-id (nth (:players game-model) (:next-player game-model)))
+     :hand-cards (:hand-cards (first (filter #(= player-name (:player-id %)) (:players game-model))))
+     :current-trick-cards (:current-trick-cards game-model)}))
 
 (defn- start-game-loop [matches id]
   (go-loop []
@@ -25,7 +28,7 @@
                  updated-game-model (model/tick game-model {:card card})]
              (log/info "Updated model" updated-game-model)
              (swap! matches #(update % id assoc :game-model updated-game-model))
-             (when-not (:win-card updated-game-model)
+             (when-not (:game-ended? updated-game-model)
                (recur)))))
 
 (defn start [matches id]
@@ -40,6 +43,7 @@
     (get @matches id)))
 
 (defn play-card [matches id player card-index]
+  (log/info "Going to play card with match" id "player" player "and index" card-index)
   (let [match (get @matches id)
         player-details (first (filter #(= player (:player-id %)) (-> match :game-model :players)))
         card (get-in player-details [:hand-cards card-index])

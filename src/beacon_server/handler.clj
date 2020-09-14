@@ -33,7 +33,7 @@
   (GET "/api/match/:id" [id] (resp/response (matchmake/get-match matches id)))
   (POST "/api/match" {:keys [body]} (resp/response (find-match body)))
   (POST "/api/match/:id/start" [id] (start-game id))
-  (GET "/api/match/:id/cards/:player" [id player] (resp/response (game/get-cards-for-player-name matches id player)))
+  (GET "/api/match/:id/status/:player" [id player] (resp/response (game/get-game-status matches id player)))
   (PUT "/api/match/:id/play/:player/card/:card-index" [id player card-index]
        (resp/response (game/play-card matches id player (Integer/parseInt card-index))))
   (route/resources "/")

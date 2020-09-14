@@ -31,8 +31,8 @@
           (:body response)
           (throw (js/Error. (str "Call to url " url " failed with response: " response)))))))
 
-(defn get-cards [id player-name]
-  (go (let [url (str api-url "/match/" id "/cards/" player-name)
+(defn get-game-status [id player-name]
+  (go (let [url (str api-url "/match/" id "/status/" player-name)
             response (<! (http/get url {:with-credentials? false}))]
         (if (= 200 (:status response))
           (:body response)

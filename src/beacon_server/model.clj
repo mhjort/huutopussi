@@ -1,4 +1,5 @@
-(ns beacon-server.model)
+(ns beacon-server.model
+  (:require [beacon-server.deck :as deck]))
 
 (defn winning-card [cards trump-suit]
   (let [round-suit (:suit (first cards))
@@ -41,12 +42,15 @@
   (let [updated-game-model (-> game-model
                                (update :current-trick-cards conj {:player next-player :card card})
                                (update-in [:players next-player :hand-cards] (fn [hand-cards]
-                                                                               (remove #(= card %) hand-cards))))
+                                                                               (vec (remove #(= card %) hand-cards)))))
         possible-cards-for-next-player (fn [next-player]
                                          (possible-cards (map :card (:current-trick-cards updated-game-model))
                                                          (get-in updated-game-model [:players next-player :hand-cards])
                                                          nil))
-        trick-ended? (= number-of-players (count (:current-trick-cards updated-game-model)))]
+        trick-ended? (= number-of-players (count (:current-trick-cards updated-game-model)))
+        ;TODO Better check for this
+        game-ended? (and trick-ended?
+                         (empty? (get-in updated-game-model [:players next-player :hand-cards])))]
     (if trick-ended?
       (let [win-card (winning-card (map :card (:current-trick-cards updated-game-model)) nil)
             win-player (-> (filter #(= win-card (:card %)) (:current-trick-cards updated-game-model))
@@ -54,20 +58,23 @@
                            :player)]
         (-> updated-game-model
             (update :current-round inc)
+            (assoc :game-ended? game-ended?)
             (assoc :current-trick-cards [])
             (assoc :win-card win-card)
             (assoc :next-player win-player)
-            (assoc-in [:player win-player :possible-cards] (possible-cards-for-next-player win-player))))
+            (assoc-in [:players win-player :possible-cards] (possible-cards-for-next-player win-player))))
       (let [next-player (next-player-index (:next-player updated-game-model) number-of-players)]
         (-> updated-game-model
+            (assoc :game-ended? game-ended?)
             (assoc :next-player next-player)
-            (assoc-in [:player next-player :possible-cards] (possible-cards-for-next-player next-player)))))))
+            (assoc-in [:players next-player :possible-cards] (possible-cards-for-next-player next-player)))))))
 
 (defn init [player-ids shuffled-cards cards-per-player]
   (let [game-model {:current-round 0
                     :next-player 0
                     :number-of-players (count player-ids)
                     :current-trick-cards []
+                    :game-ended? false
                     :players (mapv (fn [player-id cards]
                                      (let [hand-cards (vec (take cards-per-player cards))]
                                        {:player-id player-id
@@ -77,15 +84,18 @@
                                    shuffled-cards)}]
     game-model))
 
-;(let [shuffled-cards (deck/shuffle-for-four-players (deck/card-deck))
-;      game-model (init ["a" "b" "c" "d"] shuffled-cards 2)
-;      do-it (fn [{:keys [next-player players] :as game-model}]
-;              (let [card-to-play (-> (nth players next-player) :possible-cards first)]
-;                    (tick game-model {:card card-to-play})))]
-;  (-> game-model
+(let [shuffled-cards (deck/shuffle-for-four-players (deck/card-deck))
+      game-model (init ["a" "b" "c" "d"] shuffled-cards 2)
+      do-it (fn [{:keys [next-player players] :as game-model}]
+              (let [card-to-play (-> (nth players next-player) :possible-cards first)]
+                    (tick game-model {:card card-to-play})))
+      end-result  (-> game-model
+     (do-it)
+     (do-it)
+     (do-it)
+     (do-it)
+     (do-it)
+     (do-it)
 ;     (do-it)
-;     (do-it)
-;     (do-it)
-;     (do-it)
-;     (do-it)))
-
+     (do-it))]
+  [(:next-player end-result) (:win-card end-result) (:game-ended? end-result) (map :hand-cards (:players end-result))])
