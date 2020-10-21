@@ -4,14 +4,15 @@
             [cljs.core.async :refer [<! timeout]]
             [clojure.string :as string]
             [goog.dom :as gdom]
+            [re-frame.core :as re-frame]
             [reagent.dom :as rdom]
-            [reagent.core :as reagent :refer [atom]]))
+            [reagent.core :as reagent]))
 
 (defn multiply [a b] (* a b))
 
 (def image-path "/img/cards")
 
-(defonce app-state (atom {:player-name nil
+(defonce app-state (reagent/atom {:player-name nil
                           ;:state :started
                           ;:cards [{:suit "clubs" :text "8"} {:suit "spades" :text "A"} {:suit "diamonds" :text "10"}]}))
                           :state :enter-name}))
@@ -26,11 +27,11 @@
        (subs (string/upper-case suit) 0 1)
        ".svg"))
 
-(defn- play-game []
-  (println "Finding match for")
+(defn- play-game [coeffects [_ player-name]]
+  (println "Finding match for" player-name)
   (swap! app-state assoc :state :finding-match)
   (go
-    (let [{:keys [id status] :as match} (<! (game-client/call-find-match (:player-name @app-state)))
+    (let [{:keys [id status] :as match} (<! (game-client/call-find-match player-name))
           _ (println "Found match" match)
           matched-match (if (= "matched" status)
                           match
@@ -41,7 +42,7 @@
           _  (when am-i-declarer?
                _    (game-client/call-start-game id))
           _  (<! (game-client/wait-until-state id "started"))
-          cards (:hand-cards (<! (game-client/get-game-status id (:player-name @app-state))))]
+          cards (:hand-cards (<! (game-client/get-game-status id player-name)))]
       (println "Got cards first time" cards)
       (swap! app-state assoc :state :started :cards cards :match-id id)
       (loop []
@@ -51,7 +52,7 @@
                       possible-cards
                       current-round
                       win-card
-                      next-player-name]} (<! (game-client/get-game-status id (:player-name @app-state)))]
+                      next-player-name]} (<! (game-client/get-game-status id player-name))]
           (swap! app-state assoc
                  :state :started
                  :cards hand-cards
@@ -98,8 +99,7 @@
     [:label "Enter your name"]
     [:input {:type "text"
              :on-change #(swap! app-state assoc :player-name (-> % .-target .-value))}]
-    [:button {:type "submit" :value "Start Match!" :on-click play-game} "Start Match!"]])
-
+     [:button {:type "submit" :value "Start Match!" :on-click #(re-frame/dispatch [:start-matchmake (:player-name @app-state)])} "Start Match!"]])
 
 (defn home []
   [:div
@@ -114,6 +114,10 @@
 (defn mount-app-element []
   (when-let [el (get-app-element)]
     (mount el)))
+
+(re-frame/reg-event-fx   ;; a part of the re-frame API
+  :start-matchmake               ;; the kind of event
+  play-game)
 
 ;; conditionally start your application based on the presence of an "app" element
 ;; this is particularly helpful for testing this ns without launching the app
