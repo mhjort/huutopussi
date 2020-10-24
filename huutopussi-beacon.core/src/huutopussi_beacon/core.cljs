@@ -12,10 +12,7 @@
 
 (def image-path "/img/cards")
 
-(defonce app-state (reagent/atom {:player-name nil
-                          ;:state :started
-                          ;:cards [{:suit "clubs" :text "8"} {:suit "spades" :text "A"} {:suit "diamonds" :text "10"}]}))
-                          :state :enter-name}))
+(defonce app-state (reagent/atom {:player-name nil}))
 
 (defn get-app-element []
   (gdom/getElement "app"))
@@ -29,22 +26,25 @@
 
 (defn- play-game [coeffects [_ player-name]]
   (println "Finding match for" player-name)
-  (swap! app-state assoc :state :finding-match)
+  (swap! app-state assoc :player-name player-name)
+  (re-frame/dispatch [:change-state :finding-match])
   (go
     (let [{:keys [id status] :as match} (<! (game-client/call-find-match player-name))
           _ (println "Found match" match)
           matched-match (if (= "matched" status)
                           match
                           (<! (game-client/wait-until-state id "matched")))
-          _ (swap! app-state assoc :state :matched :match matched-match)
-          am-i-declarer? (= (:player-name @app-state) (:declarer matched-match))
+          _ (swap! app-state assoc :match matched-match)
+          _ (re-frame/dispatch [:change-state :matched])
+          am-i-declarer? (= player-name (:declarer matched-match))
           _      (println "Matched" matched-match am-i-declarer?)
           _  (when am-i-declarer?
                _    (game-client/call-start-game id))
           _  (<! (game-client/wait-until-state id "started"))
           cards (:hand-cards (<! (game-client/get-game-status id player-name)))]
       (println "Got cards first time" cards)
-      (swap! app-state assoc :state :started :cards cards :match-id id)
+      (swap! app-state assoc :cards cards :match-id id)
+      (re-frame/dispatch [:change-state :started])
       (loop []
         (<! (timeout 500))
         (let [{:keys [hand-cards
@@ -54,13 +54,13 @@
                       win-card
                       next-player-name]} (<! (game-client/get-game-status id player-name))]
           (swap! app-state assoc
-                 :state :started
                  :cards hand-cards
                  :possible-cards possible-cards
                  :current-round (inc current-round) ;Server round is zero based
                  :next-player-name next-player-name
                  :trick-cards current-trick-cards))
-        (recur)))))
+        (recur))))
+    {})
 
 (defn- try-to-play-card [card-index]
   (let [card-to-play (nth (:cards @app-state) card-index)
@@ -72,7 +72,7 @@
 
 (defn- show-match-status []
   [:div
-   (condp = (:state @app-state)
+   (condp = @(re-frame/subscribe [:state-change])
      :finding-match [:p (str "Finding match for player: " (:player-name @app-state))]
      :matched [:p (str "Found match with players" (map :name (-> @app-state :match :players)))]
      :started [:div
@@ -95,20 +95,23 @@
      )])
 
 (defn- show-match-start []
-  [:div
-    [:label "Enter your name"]
-    [:input {:type "text"
-             :on-change #(swap! app-state assoc :player-name (-> % .-target .-value))}]
-     [:button {:type "submit" :value "Start Match!" :on-click #(re-frame/dispatch [:start-matchmake (:player-name @app-state)])} "Start Match!"]])
+  (let [player-name (atom "")]
+    [:div
+     [:label "Enter your name"]
+     [:input {:type "text"
+              :on-change #(reset! player-name (-> % .-target .-value))}]
+     [:button {:type "submit" :value "Start Match!" :on-click #(re-frame/dispatch [:start-matchmake @player-name])} "Start Match!"]]))
 
 (defn home []
-  [:div
-   [:h1 "Huutopussi"]
-   (if (= :enter-name (:state @app-state))
-     (show-match-start)
-     (show-match-status))])
+  (let [state (re-frame/subscribe [:state-change])]
+    [:div
+     [:h1 "Huutopussi"]
+     (if (= :enter-name @state)
+       (show-match-start)
+       (show-match-status))]))
 
 (defn mount [el]
+  (re-frame/dispatch-sync [:change-state :enter-name])
   (rdom/render [home] el))
 
 (defn mount-app-element []
@@ -119,6 +122,16 @@
   :start-matchmake               ;; the kind of event
   play-game)
 
+(re-frame/reg-sub
+  :state-change
+  (fn [db _]
+    (:state db)))
+
+(re-frame/reg-event-db ;; notice it's a db event
+  :change-state
+  (fn [db [_ state]]
+    (println "updating state to" state)
+    (assoc db :state state)))
 ;; conditionally start your application based on the presence of an "app" element
 ;; this is particularly helpful for testing this ns without launching the app
 (mount-app-element)
