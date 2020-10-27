@@ -5,14 +5,11 @@
             [clojure.string :as string]
             [goog.dom :as gdom]
             [re-frame.core :as re-frame]
-            [reagent.dom :as rdom]
-            [reagent.core :as reagent]))
+            [reagent.dom :as rdom]))
 
 (defn multiply [a b] (* a b))
 
 (def image-path "/img/cards")
-
-(defonce app-state (reagent/atom {:player-name nil}))
 
 (defn get-app-element []
   (gdom/getElement "app"))
@@ -24,75 +21,64 @@
        (subs (string/upper-case suit) 0 1)
        ".svg"))
 
-(defn- play-game [coeffects [_ player-name]]
+(defn start-matchmake [{:keys [player-name]}]
   (println "Finding match for" player-name)
-  (swap! app-state assoc :player-name player-name)
-  (re-frame/dispatch [:change-state :finding-match])
   (go
     (let [{:keys [id status] :as match} (<! (game-client/call-find-match player-name))
           _ (println "Found match" match)
+          ;TODO Race condition. Match can be already started
           matched-match (if (= "matched" status)
                           match
-                          (<! (game-client/wait-until-state id "matched")))
-          _ (swap! app-state assoc :match matched-match)
-          _ (re-frame/dispatch [:change-state :matched])
-          am-i-declarer? (= player-name (:declarer matched-match))
-          _      (println "Matched" matched-match am-i-declarer?)
-          _  (when am-i-declarer?
-               _    (game-client/call-start-game id))
-          _  (<! (game-client/wait-until-state id "started"))
-          cards (:hand-cards (<! (game-client/get-game-status id player-name)))]
-      (println "Got cards first time" cards)
-      (swap! app-state assoc :cards cards :match-id id)
-      (re-frame/dispatch [:change-state :started])
-      (loop []
-        (<! (timeout 500))
-        (let [{:keys [hand-cards
-                      current-trick-cards
-                      possible-cards
-                      current-round
-                      win-card
-                      next-player-name]} (<! (game-client/get-game-status id player-name))]
-          (swap! app-state assoc
-                 :cards hand-cards
-                 :possible-cards possible-cards
-                 :current-round (inc current-round) ;Server round is zero based
-                 :next-player-name next-player-name
-                 :trick-cards current-trick-cards))
-        (recur))))
-    {})
+                          (<! (game-client/wait-until-state id "matched")))]
+      (println "Matched")
+      (re-frame/dispatch [:matched matched-match]))))
 
-(defn- try-to-play-card [card-index]
-  (let [card-to-play (nth (:cards @app-state) card-index)
-        is-possible-card? (boolean (some #{card-to-play} (:possible-cards @app-state)))]
-    (when-not is-possible-card?
-      (throw (js/Error.
-               (str "Card " card-to-play " is not one of the possible cards " (:possible-cards @app-state)))))
-  (game-client/play-card (:match-id @app-state) (:player-name @app-state) card-index)))
+(defn play-game [{:keys [match-id player-name]}]
+  (go
+    (loop []
+      (let [{:keys [hand-cards
+                    current-trick-cards
+                    possible-cards
+                    current-round
+                    win-card
+                    next-player-name]} (<! (game-client/get-game-status match-id player-name))]
+        (re-frame/dispatch [:game-status {:cards hand-cards
+                                           :possible-cards possible-cards
+                                           :current-round (inc current-round) ;Server round is zero based
+                                           :next-player-name next-player-name
+                                           :trick-cards current-trick-cards}]))
+      (<! (timeout 1500))
+      (recur))))
 
 (defn- show-match-status []
   [:div
    (condp = @(re-frame/subscribe [:state-change])
-     :finding-match [:p (str "Finding match for player: " (:player-name @app-state))]
-     :matched [:p (str "Found match with players" (map :name (-> @app-state :match :players)))]
-     :started [:div
-               [:p (str "Started match with players" (map :name (-> @app-state :match :players)))]
-               [:p (str "Current round: " (:current-round @app-state)
-                        ", waiting for player " (:next-player-name @app-state))]
-               [:p (str "Your hand cards." (if (= (:player-name @app-state) (:next-player-name @app-state))
-                                             "It is your turn to choose card"
-                                             ""))]
-               (for [[index card] (doall (map-indexed vector (:cards @app-state)))]
-                 ^{:key card}[:img {:on-click (partial try-to-play-card index)
-                                    :src (card-url card)
-                                    :width "225px"
-                                    :height "315px"}])
-               [:p "Current trick cards"]
-               (for [card (map :card (:trick-cards @app-state))]
-                 ^{:key card}[:img {:src (card-url card)
-                                    :width "225px"
-                                    :height "315px"}])]
-     )])
+     :finding-match [:p (str "Finding match for player: " @(re-frame/subscribe [:player-name]))]
+     :matched [:p (str "Found match with players" (map :name (:players @(re-frame/subscribe [:match]))))]
+     :started (let [player-name @(re-frame/subscribe [:player-name])
+                    match @(re-frame/subscribe [:match])
+                    game @(re-frame/subscribe [:game])]
+                (println "game is" game)
+                [:div
+                 [:p (str "Started match with players" (map :name (:players match)))]
+                ; (when game
+                   [:p (str "Current round: " (:current-round game)
+                            ", waiting for player " (:next-player-name game))]
+                   [:p (str "Your hand cards." (if (= player-name (:next-player-name game))
+                                                 "It is your turn to choose card"
+                                                 ""))]
+                   (for [[index card] (doall (map-indexed vector (:cards game)))]
+                     ^{:key card}[:img {:on-click #(re-frame/dispatch [:player-card index])
+                                        :src (card-url card)
+                                        :width "225px"
+                                        :height "315px"}])
+                   [:p "Current trick cards"]
+                   (for [card (map :card (:trick-cards game))]
+                     ^{:key card}[:img {:src (card-url card)
+                                        :width "225px"
+                                        :height "315px"}])
+                ;   )
+                 ]))])
 
 (defn- show-match-start []
   (let [player-name (atom "")]
@@ -118,14 +104,87 @@
   (when-let [el (get-app-element)]
     (mount el)))
 
-(re-frame/reg-event-fx   ;; a part of the re-frame API
-  :start-matchmake               ;; the kind of event
+(re-frame/reg-event-fx
+  :start-matchmake
+  (fn [{:keys [db]} [_ player-name]]
+    {:start-matchmake {:player-name player-name}
+     :db (assoc db :state :finding-match :player-name player-name)}))
+
+(re-frame/reg-event-fx
+  :matched
+  (fn [{:keys [db]} [_ {:keys [id declarer] :as match}]]
+    (let [am-i-declarer? (= (:player-name db) declarer)]
+      {:wait-for-match {:declarer? am-i-declarer? :match-id id}
+       :db (assoc db :state :matched :match match)})))
+
+(re-frame/reg-event-fx
+  :game-started
+  (fn [{:keys [db]} [_ _]]
+    {:play-game {:player-name (:player-name db) :match-id (-> db :match :id)}
+     :db (assoc db :state :started)}))
+
+(re-frame/reg-event-fx
+  :game-status
+  (fn [{:keys [db]} [_ game]]
+    {:db (assoc db :game game)}))
+
+(re-frame/reg-event-fx
+  :player-card
+  (fn [{:keys [db]} [_ card-index]]
+    (let [card-to-play (nth (-> db :game :cards) card-index)
+          possible-cards (-> db :game :possible-cards)
+          is-possible-card? (boolean (some #{card-to-play} possible-cards))]
+      (if is-possible-card?
+        {:play-card {:match-id (-> db :match :id) :player-name (:player-name db) :card-index card-index}}
+        {:show-error {:message (str "Card " card-to-play " is not one of the possible cards " :possible-cards)}}))))
+
+(re-frame/reg-fx
+  :show-error
+  (fn [{:keys [message]}]
+    (throw (js/Error. message))))
+
+(re-frame/reg-fx
+  :play-card
+  (fn [{:keys [match-id player-name card-index]}]
+    (game-client/play-card match-id player-name card-index)))
+
+(re-frame/reg-fx
+  :play-game
   play-game)
+
+(re-frame/reg-fx
+  :start-matchmake
+  start-matchmake)
+
+(re-frame/reg-fx
+  :wait-for-match
+  (fn [{:keys [declarer? match-id]}]
+    (println "Waiting for start for" match-id "Declarer?" declarer?)
+    (go
+      (when declarer?
+        (game-client/call-start-game match-id))
+      (<! (game-client/wait-until-state match-id "started"))
+      (re-frame/dispatch [:game-started]))))
 
 (re-frame/reg-sub
   :state-change
   (fn [db _]
     (:state db)))
+
+(re-frame/reg-sub
+  :player-name
+  (fn [db _]
+    (:player-name db)))
+
+(re-frame/reg-sub
+  :match
+  (fn [db _]
+    (:match db)))
+
+(re-frame/reg-sub
+  :game
+  (fn [db _]
+    (:game db)))
 
 (re-frame/reg-event-db ;; notice it's a db event
   :change-state
