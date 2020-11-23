@@ -47,7 +47,7 @@
                                            :current-round (inc current-round) ;Server round is zero based
                                            :next-player-name next-player-name
                                            :trick-cards current-trick-cards}]))
-      (<! (timeout 1500))
+      (<! (timeout 500))
       (recur))))
 
 (defn- show-match-status []
@@ -112,10 +112,9 @@
 
 (re-frame/reg-event-fx
   :matched
-  (fn [{:keys [db]} [_ {:keys [id declarer] :as match}]]
-    (let [am-i-declarer? (= (:player-name db) declarer)]
-      {:wait-for-match {:declarer? am-i-declarer? :match-id id}
-       :db (assoc db :state :matched :match match)})))
+  (fn [{:keys [db]} [_ {:keys [id] :as match}]]
+    {:wait-for-match {:player-name (:player-name db) :match-id id}
+     :db (assoc db :state :matched :match match)}))
 
 (re-frame/reg-event-fx
   :game-started
@@ -158,11 +157,9 @@
 
 (re-frame/reg-fx
   :wait-for-match
-  (fn [{:keys [declarer? match-id]}]
-    (println "Waiting for start for" match-id "Declarer?" declarer?)
+  (fn [{:keys [player-name match-id]}]
     (go
-      (when declarer?
-        (game-client/call-start-game match-id))
+      (<! (game-client/mark-as-ready match-id player-name))
       (<! (game-client/wait-until-state match-id "started"))
       (re-frame/dispatch [:game-started]))))
 

@@ -20,9 +20,7 @@
       {:id id
        :status status
        :declarer declarer
-       :players (mapv (fn [player]
-                        {:name (:name player)})
-                      players)})
+       :players (mapv #(select-keys % [:name]) (vals players))})
     (throw (Exception. (str "No such match: " id)))))
 
 (defn find-match [matches player]
@@ -33,9 +31,9 @@
                                       :matched
                                       :waiting)]
                          (cond-> match
-                           (nil? match) (assoc :declarer new-player :players [])
+                           (nil? match) (assoc :declarer new-player :players {})
                            true (assoc :status status)
-                           true (update :players conj {:name new-player}))))
+                           true (update :players assoc new-player {:name new-player}))))
         [before after] (swap-vals! matches
                                    #(let [id (or (match-id-with-player-count-less-than % max-players-in-match)
                                                  (rand-str 6))]
@@ -44,4 +42,4 @@
     (get-match matches (first (keys new-match)))))
 
 ;(find-match (atom {}) "a")
-;(find-match (atom {"1" {:declarer "a" :players [{:name "a"}]}}) "b")
+;(find-match (atom {"1" {:declarer "a" :players {"a" {:name "a"}}}}) "b")

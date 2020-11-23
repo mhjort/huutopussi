@@ -13,13 +13,14 @@
 
 (defn wait-until-state [match-id expected-state]
   (go-loop []
-           (<! (timeout 500))
            (let [url (str api-url "/match/" match-id)
                  {:keys [body status] :as response} (<! (http/get url {:with-credentials? false}))]
              (if (= 200 status)
                (if (= expected-state (:status body))
                  body
-                 (recur))
+                 (do
+                   (<! (timeout 500))
+                   (recur)))
                (throw (js/Error. (str "Match find failed with response: " response)))))))
 
 (defn call-find-match [player-name]
@@ -38,13 +39,13 @@
           (:body response)
           (throw (js/Error. (str "Call to url " url " failed with response: " response)))))))
 
-(defn call-start-game [id]
-  (go (let [response (<! (http/post (str api-url "/match/" id "/start" )
+(defn mark-as-ready [id player-name]
+  (go (let [response (<! (http/put (str api-url "/match/" id "/ready-to-start/" player-name)
                                     {:json-params {}
                                      :with-credentials? false}))]
         (if (= 200 (:status response))
           (:body response)
-          (throw (js/Error. (str "Match find failed with response: " response)))))))
+          (throw (js/Error. (str "Match mark-as-ready failed with response: " response)))))))
 
 (defn play-card [id player index]
   (println "Playing card: " index)

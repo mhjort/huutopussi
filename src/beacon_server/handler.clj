@@ -14,10 +14,10 @@
 (defn- find-match [{:keys [playerName]}]
   (matchmake/find-match matches playerName))
 
-(defn- start-game [id]
-  (let [started-match (game/start matches id)]
-    (log/info "Started match" started-match)
-     (resp/response {:ok true})))
+(defn- mark-as-ready-to-start [id player]
+  (let [started-match (game/mark-as-ready-to-start matches id player)]
+    (log/info "Mark as ready-to-start" started-match)
+    (resp/response {:ok true})))
 
 (defn wrap-exception-handling
   [handler]
@@ -32,7 +32,7 @@
   (GET "/" [] (resp/redirect "/index.html"))
   (GET "/api/match/:id" [id] (resp/response (matchmake/get-match matches id)))
   (POST "/api/match" {:keys [body]} (resp/response (find-match body)))
-  (POST "/api/match/:id/start" [id] (start-game id))
+  (PUT "/api/match/:id/ready-to-start/:player" [id player] (mark-as-ready-to-start id player))
   (GET "/api/match/:id/status/:player" [id player] (resp/response (game/get-game-status matches id player)))
   (PUT "/api/match/:id/play/:player/card/:card-index" [id player card-index]
        (resp/response (game/play-card matches id player (Integer/parseInt card-index))))
