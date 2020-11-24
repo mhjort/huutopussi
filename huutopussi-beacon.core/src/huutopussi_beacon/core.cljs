@@ -24,8 +24,8 @@
 (defn start-matchmake [{:keys [player-name]}]
   (println "Finding match for" player-name)
   (go
-    (let [{:keys [id status] :as match} (<! (game-client/call-find-match player-name))
-          _ (println "Found match" match)
+    (let [{:keys [id status player-id] :as match} (<! (game-client/call-find-match player-name))
+          _ (println "Found match" match "and created player id" player-id)
           ;TODO Race condition. Match can be already started
           matched-match (if (= "matched" status)
                           match

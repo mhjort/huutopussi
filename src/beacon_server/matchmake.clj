@@ -26,20 +26,21 @@
 (defn find-match [matches player]
   (log/info "Finding match for" player)
   (let [max-players-in-match 4
+        player-id (rand-str 6)
         update-match (fn [new-player match]
                        (let [status (if (= max-players-in-match (inc (count (:players match))))
                                       :matched
                                       :waiting)]
                          (cond-> match
-                           (nil? match) (assoc :declarer new-player :players {})
+                           (nil? match) (assoc :declarer (:name new-player) :players {})
                            true (assoc :status status)
-                           true (update :players assoc new-player {:name new-player}))))
+                           true (update :players assoc (:id new-player) new-player))))
         [before after] (swap-vals! matches
-                                   #(let [id (or (match-id-with-player-count-less-than % max-players-in-match)
-                                                 (rand-str 6))]
-                                      (update % id (partial update-match player))))
+                                   #(let [match-id (or (match-id-with-player-count-less-than % max-players-in-match)
+                                                       (rand-str 6))]
+                                      (update % match-id (partial update-match {:name player :id player-id}))))
         [_ new-match _] (data/diff before after)]
-    (get-match matches (first (keys new-match)))))
+    (assoc (get-match matches (first (keys new-match))) :player-id player-id)))
 
 ;(find-match (atom {}) "a")
 ;(find-match (atom {"1" {:declarer "a" :players {"a" {:name "a"}}}}) "b")
