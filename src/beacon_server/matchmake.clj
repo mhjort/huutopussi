@@ -1,5 +1,6 @@
 (ns beacon-server.matchmake
   (:require [clojure.data :as data]
+            [beacon-server.game :as game]
             [clojure.tools.logging :as log]))
 
 (defn rand-str [len]
@@ -41,6 +42,14 @@
                                       (update % match-id (partial update-match {:name player :id player-id}))))
         [_ new-match _] (data/diff before after)]
     (assoc (get-match matches (first (keys new-match))) :player-id player-id)))
+
+(defn mark-as-ready-to-start [matches id player]
+  (let [mark-player-as-ready #(assoc-in % [:players player :ready-to-start?] true)
+        updated-matches (swap! matches #(update % id mark-player-as-ready))]
+    (when (every? :ready-to-start?
+                  (vals (get-in updated-matches [id :players])))
+      (game/start matches id)))
+  (get-match matches id))
 
 ;(find-match (atom {}) "a")
 ;(find-match (atom {"1" {:declarer "a" :players {"a" {:name "a"}}}}) "b")

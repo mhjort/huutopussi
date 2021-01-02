@@ -4,17 +4,21 @@
             [clojure.core.async :refer [chan go go-loop <! >!]]
             [clojure.tools.logging :as log]))
 
-(defn get-game-status [matches id player-name]
-  ;TODO Check that game has been started
-  ;TODO We should create unique ids for players. Players should not know each others ids
-  (let [{:keys [game-model] :as match} (get @matches id)]
-    (when-not (= :started (:status match))
-      (throw (Exception. "Match status should be started")))
+(defn- get-match [matches id]
+  (let [match (get @matches id)]
+    (when-not match
+      (throw (Exception. (str "Could not find match with id " id " from " @matches))))
+    match))
+
+(defn get-game-status [matches id player-id]
+  (let [{:keys [status game-model] :as match} (get-match matches id)]
+    (when-not (= :started status)
+      (throw (Exception. (str "Match " id " status should be started, but was " status))))
     {:current-round (:current-round game-model)
      :win-card (:current-round game-model)
-     :next-player-name (:next-player-id game-model)
-     :possible-cards (get-in game-model [:players player-name :possible-cards])
-     :hand-cards (get-in game-model [:players player-name :hand-cards])
+     :next-player-name (get-in match [:players (:next-player-id game-model) :name])
+     :possible-cards (get-in game-model [:players player-id :possible-cards])
+     :hand-cards (get-in game-model [:players player-id :hand-cards])
      :current-trick-cards (:current-trick-cards game-model)}))
 
 (defn- start-game-loop [matches id]
@@ -35,22 +39,14 @@
 (defn- map-kv [m f]
   (reduce-kv #(assoc %1 %2 (f %3)) {} m))
 
-(defn- start [matches id]
-  (log/info "All players ready. Starting match" id)
-  (let [match (get @matches id)
+(defn start [matches id]
+  (let [match (get-match matches id)
+        _ (log/info "All players ready. Starting match" match)
         shuffled-cards (deck/shuffle-for-four-players (deck/card-deck))
         players-with-input-channels (map-kv (:players match)  #(assoc % :input-channel (chan)))
-        game-model (model/init (mapv :name (vals (:players match))) shuffled-cards 9)]
+        game-model (model/init (mapv :id (vals (:players match))) shuffled-cards 9)]
     (swap! matches #(update % id assoc :status :started :game-model game-model :players players-with-input-channels))
     (start-game-loop matches id)))
-
-(defn mark-as-ready-to-start [matches id player]
-  (let [mark-player-as-ready #(assoc-in % [:players player :ready-to-start?] true)
-        updated-matches (swap! matches #(update % id mark-player-as-ready))]
-    (when (every? :ready-to-start?
-                  (vals (get-in updated-matches [id :players])))
-      (start matches id)))
-  (get @matches id))
 
 (defn play-card [matches id player-id card-index]
   (log/info "Going to play card with match" id "player-id" player-id "and index" card-index)

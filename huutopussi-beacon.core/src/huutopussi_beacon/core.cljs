@@ -31,9 +31,9 @@
                           match
                           (<! (game-client/wait-until-state id "matched")))]
       (println "Matched")
-      (re-frame/dispatch [:matched matched-match]))))
+      (re-frame/dispatch [:matched [matched-match player-id]]))))
 
-(defn play-game [{:keys [match-id player-name]}]
+(defn play-game [{:keys [match-id player-id]}]
   (go
     (loop []
       (let [{:keys [hand-cards
@@ -41,7 +41,7 @@
                     possible-cards
                     current-round
                     win-card
-                    next-player-name]} (<! (game-client/get-game-status match-id player-name))]
+                    next-player-name]} (<! (game-client/get-game-status match-id player-id))]
         (re-frame/dispatch [:game-status {:cards hand-cards
                                            :possible-cards possible-cards
                                            :current-round (inc current-round) ;Server round is zero based
@@ -112,14 +112,14 @@
 
 (re-frame/reg-event-fx
   :matched
-  (fn [{:keys [db]} [_ {:keys [id] :as match}]]
-    {:wait-for-match {:player-name (:player-name db) :match-id id}
-     :db (assoc db :state :matched :match match)}))
+  (fn [{:keys [db]} [_ [{:keys [id] :as match} player-id]]]
+    {:wait-for-match {:player-id player-id :match-id id}
+     :db (assoc db :state :matched :match match :player-id player-id)}))
 
 (re-frame/reg-event-fx
   :game-started
   (fn [{:keys [db]} [_ _]]
-    {:play-game {:player-name (:player-name db) :match-id (-> db :match :id)}
+    {:play-game {:player-name (:player-name db) :player-id (:player-id db) :match-id (-> db :match :id)}
      :db (assoc db :state :started)}))
 
 (re-frame/reg-event-fx
@@ -134,7 +134,7 @@
           possible-cards (-> db :game :possible-cards)
           is-possible-card? (boolean (some #{card-to-play} possible-cards))]
       (if is-possible-card?
-        {:play-card {:match-id (-> db :match :id) :player-name (:player-name db) :card-index card-index}}
+        {:play-card {:match-id (-> db :match :id) :player-id (:player-id db) :card-index card-index}}
         {:show-error {:message (str "Card " card-to-play " is not one of the possible cards " :possible-cards)}}))))
 
 (re-frame/reg-fx
@@ -144,8 +144,8 @@
 
 (re-frame/reg-fx
   :play-card
-  (fn [{:keys [match-id player-name card-index]}]
-    (game-client/play-card match-id player-name card-index)))
+  (fn [{:keys [match-id player-id card-index]}]
+    (game-client/play-card match-id player-id card-index)))
 
 (re-frame/reg-fx
   :play-game
@@ -157,9 +157,9 @@
 
 (re-frame/reg-fx
   :wait-for-match
-  (fn [{:keys [player-name match-id]}]
+  (fn [{:keys [player-id match-id]}]
     (go
-      (<! (game-client/mark-as-ready match-id player-name))
+      (<! (game-client/mark-as-ready match-id player-id))
       (<! (game-client/wait-until-state match-id "started"))
       (re-frame/dispatch [:game-started]))))
 

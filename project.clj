@@ -10,7 +10,7 @@
                  [ring/ring-json "0.5.0"]
                  [ring-cors "0.1.13"]]
   :plugins [[lein-ring "0.12.5"]]
-  :ring {:handler beacon-server.handler/app}
+  :ring {:handler beacon-server.handler/prod-app}
   :uberjar-name "huutopussi-beacon-standalone.jar"
   :profiles
   {:dev {:dependencies [[javax.servlet/servlet-api "2.5"]

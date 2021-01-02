@@ -5,7 +5,7 @@
 
 (deftest play-card-returns-ok-and-pushes-to-input-channel-when-it-is-player-turn
   (let [input-channel (chan)
-        matches (atom {"match-a" {:players [{:name "player-b" :input-channel input-channel}]
+        matches (atom {"match-a" {:players {"player-b" {:name "player-b-name" :id "player-b" :input-channel input-channel}}
                                   :game-model {:next-player-id "player-b"
                                                :players {"player-b" {:player-id "player-b"
                                                                      :player-index 0
@@ -15,7 +15,7 @@
 
 (deftest play-card-returns-false-and-do-not-push-to-input-channel-when-it-is-not-player-turn
   (let [input-channel (chan)
-        matches (atom {"match-a" {:players [{:name "player-b" :input-channel input-channel}]
+        matches (atom {"match-a" {:players {"player-b" {:name "player-b-name" :id "player-b" :input-channel input-channel}}
                                   :game-model {:next-player-id "player-c"
                                                :players {"player-b" {:player-id "player-b"
                                                                      :hand-cards ["J"]}
