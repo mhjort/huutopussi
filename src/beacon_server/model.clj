@@ -43,6 +43,7 @@
 (defn tick [{:keys [next-player-id players] :as game-model} {:keys [card]}]
   (let [updated-game-model (-> game-model
                                (update :current-trick-cards conj {:player next-player-id :card card})
+                               (update :events conj {:event-type :card-played :player next-player-id :value card})
                                (update-in [:players next-player-id :hand-cards] (fn [hand-cards]
                                                                                      (vec (remove #(= card %) hand-cards)))))
         possible-cards-for-next-player (fn [next-player]
@@ -62,7 +63,7 @@
             (update :current-round inc)
             (assoc :game-ended? game-ended?)
             (assoc :current-trick-cards [])
-            (assoc :win-card win-card)
+            (update :events conj {:event-type :round-won :player win-player :value win-card})
             (assoc :next-player-id win-player)
             (assoc-in [:players win-player :possible-cards] (possible-cards-for-next-player win-player))))
       (let [next-player-id (select-next-player-id (get-in updated-game-model [:players next-player-id :player-index])
@@ -72,13 +73,14 @@
             (assoc :next-player-id next-player-id)
             (assoc-in [:players next-player-id :possible-cards] (possible-cards-for-next-player next-player-id)))))))
 
-(defn init [player-ids shuffled-cards cards-per-player]
+(defn init [player-ids shuffled-cards]
   (let [game-model {:current-round 0
                     :next-player-id (first player-ids)
                     :current-trick-cards []
+                    :events []
                     :game-ended? false
                     :players (into {} (map (fn [[player-index player-id] cards]
-                                             (let [hand-cards (vec (take cards-per-player cards))]
+                                             (let [hand-cards (vec cards)]
                                                [player-id {:player-id player-id
                                                            :player-index player-index
                                                            :hand-cards hand-cards
@@ -88,7 +90,7 @@
     game-model))
 
 (let [shuffled-cards (deck/shuffle-for-four-players (deck/card-deck))
-      game-model (init ["a" "b" "c" "d"] shuffled-cards 2)
+      game-model (init ["a" "b" "c" "d"] (map #(take 2 %) shuffled-cards))
       do-it (fn [{:keys [next-player-id players] :as game-model}]
               (let [card-to-play (first (get-in players [next-player-id :possible-cards]))]
                     (println "Player" next-player-id "plays" card-to-play)

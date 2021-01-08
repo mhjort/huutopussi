@@ -34,7 +34,7 @@
   (PUT "/api/match/:id/ready-to-start/:player" [id player :as request]
        (resp/response (matchmake/mark-as-ready-to-start (get-matches request) id player)))
   (GET "/api/match/:id/status/:player" [id player :as request]
-       (resp/response (game/get-game-status (get-matches request) id player)))
+       (resp/response (game/get-game-status (get-matches request) id player (-> request :params :events-since))))
   (PUT "/api/match/:id/play/:player/card/:card-index" [id player card-index :as request]
        (resp/response (game/play-card (get-matches request) id player (Integer/parseInt card-index))))
   (route/resources "/")

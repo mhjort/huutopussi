@@ -1,4 +1,5 @@
-(ns beacon-server.deck)
+(ns beacon-server.deck
+  (:require [clojure.string :as string]))
 
 (defn card-deck []
   (let [card-value-text-and-points (fn [i]
@@ -17,3 +18,10 @@
 
 (defn shuffle-for-four-players [deck]
   (partition 9 (shuffle deck)))
+
+(defn print-card [{:keys [text suit]}]
+  (str text (string/upper-case (apply str (take 1 (name suit))))))
+
+(defn pick-card [deck text suit]
+  (first (filter #(and (= text (:text %))
+                       (= suit (:suit %))) deck)))

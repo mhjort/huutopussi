@@ -10,12 +10,15 @@
       (throw (Exception. (str "Could not find match with id " id " from " @matches))))
     match))
 
-(defn get-game-status [matches id player-id]
-  (let [{:keys [status game-model] :as match} (get-match matches id)]
+(defn get-game-status [matches id player-id events-since-str]
+  (let [events-since (if events-since-str
+                       (Integer/parseInt events-since-str)
+                       0)
+        {:keys [status game-model] :as match} (get-match matches id)]
     (when-not (= :started status)
       (throw (Exception. (str "Match " id " status should be started, but was " status))))
     {:current-round (:current-round game-model)
-     :win-card (:current-round game-model)
+     :events (drop events-since (:events game-model))
      :next-player-name (get-in match [:players (:next-player-id game-model) :name])
      :possible-cards (get-in game-model [:players player-id :possible-cards])
      :hand-cards (get-in game-model [:players player-id :hand-cards])
@@ -44,7 +47,7 @@
         _ (log/info "All players ready. Starting match" match)
         shuffled-cards (deck/shuffle-for-four-players (deck/card-deck))
         players-with-input-channels (map-kv (:players match)  #(assoc % :input-channel (chan)))
-        game-model (model/init (mapv :id (vals (:players match))) shuffled-cards 9)]
+        game-model (model/init (mapv :id (vals (:players match))) shuffled-cards)]
     (swap! matches #(update % id assoc :status :started :game-model game-model :players players-with-input-channels))
     (start-game-loop matches id)))
 
