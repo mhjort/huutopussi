@@ -40,10 +40,11 @@
                     current-trick-cards
                     possible-cards
                     current-round
-                    win-card
+                    events
                     next-player-name]} (<! (game-client/get-game-status match-id player-id))]
         (re-frame/dispatch [:game-status {:cards hand-cards
                                            :possible-cards possible-cards
+                                           :events events
                                            :current-round (inc current-round) ;Server round is zero based
                                            :next-player-name next-player-name
                                            :trick-cards current-trick-cards}]))
@@ -88,13 +89,22 @@
               :on-change #(reset! player-name (-> % .-target .-value))}]
      [:button {:type "submit" :value "Start Match!" :on-click #(re-frame/dispatch [:start-matchmake @player-name])} "Start Match!"]]))
 
+(defn events-view []
+  (let [events @(re-frame/subscribe [:events])]
+    [:div
+     [:ul
+      (for [event events]
+        (let [event-text (str "Player " (:player event) " played card: " (-> event :value :text) " " (-> event :value :suit))]
+          [:li event-text]))]]))
+
 (defn home []
   (let [state (re-frame/subscribe [:state-change])]
     [:div
      [:h1 "Huutopussi"]
      (if (= :enter-name @state)
        (show-match-start)
-       (show-match-status))]))
+       (show-match-status))
+     (events-view)]))
 
 (defn mount [el]
   (re-frame/dispatch-sync [:change-state :enter-name])
@@ -182,6 +192,11 @@
   :game
   (fn [db _]
     (:game db)))
+
+(re-frame/reg-sub
+  :events
+  (fn [db _]
+    (-> db :game :events)))
 
 (re-frame/reg-event-db ;; notice it's a db event
   :change-state

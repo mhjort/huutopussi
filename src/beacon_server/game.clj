@@ -14,12 +14,13 @@
   (let [events-since (if events-since-str
                        (Integer/parseInt events-since-str)
                        0)
-        {:keys [status game-model] :as match} (get-match matches id)]
+        {:keys [status game-model] :as match} (get-match matches id)
+        player-name-by-id #(get-in match [:players % :name])]
     (when-not (= :started status)
       (throw (Exception. (str "Match " id " status should be started, but was " status))))
     {:current-round (:current-round game-model)
-     :events (drop events-since (:events game-model))
-     :next-player-name (get-in match [:players (:next-player-id game-model) :name])
+     :events (map #(update % :player player-name-by-id) (drop events-since (:events game-model)))
+     :next-player-name (player-name-by-id (:next-player-id game-model))
      :possible-cards (get-in game-model [:players player-id :possible-cards])
      :hand-cards (get-in game-model [:players player-id :hand-cards])
      :current-trick-cards (:current-trick-cards game-model)}))

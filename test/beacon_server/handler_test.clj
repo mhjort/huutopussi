@@ -72,7 +72,7 @@
             _ (Thread/sleep 10)
             {:keys [status body]} (request-with-matches :get "/api/match/match-1/status/player-1" matches)
             _ (is (= 200 status))
-            _ (is (= {:current-round 0 :next-player-name "player-2-name" :events [{:event-type "card-played" :player "player-1" :value player-a-card}]}
+            _ (is (= {:current-round 0 :next-player-name "player-2-name" :events [{:event-type "card-played" :player "player-1-name" :value player-a-card}]}
                      (select-keys body [:next-player-name :current-round :events])))
             {:keys [body]} (request-with-matches :get "/api/match/match-1/status/player-1?events-since=1" matches)]
         (is (= [] (:events body)))))))
