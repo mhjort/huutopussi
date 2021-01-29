@@ -94,7 +94,11 @@
     [:div
      [:ul
       (for [event events]
-        (let [event-text (str "Player " (:player event) " played card: " (-> event :value :text) " " (-> event :value :suit))]
+        (let [{:keys [event-type player value]} event
+              card-str (str (:text value) " " (:suit value))
+              event-text (if (= "card-played" event-type)
+                           (str "Player " player " played card: " card-str)
+                           (str "Player " player " won the tick with card " card-str))]
           [:li event-text]))]]))
 
 (defn home []
