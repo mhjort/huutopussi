@@ -46,8 +46,8 @@
                                (update :events conj {:event-type :card-played :player next-player-id :value card})
                                (update-in [:players next-player-id :hand-cards] (fn [hand-cards]
                                                                                      (vec (remove #(= card %) hand-cards)))))
-        possible-cards-for-next-player (fn [next-player]
-                                         (possible-cards (mapv :card (:current-trick-cards updated-game-model))
+        possible-cards-for-next-player (fn [next-player current-trick-cards]
+                                         (possible-cards (mapv :card current-trick-cards)
                                                          (get-in updated-game-model [:players next-player :hand-cards])
                                                          nil))
         trick-ended? (= (count players) (count (:current-trick-cards updated-game-model)))
@@ -65,13 +65,14 @@
             (assoc :current-trick-cards [])
             (update :events conj {:event-type :round-won :player win-player :value win-card})
             (assoc :next-player-id win-player)
-            (assoc-in [:players win-player :possible-cards] (possible-cards-for-next-player win-player))))
+            (assoc-in [:players win-player :possible-cards] (possible-cards-for-next-player win-player []))))
       (let [next-player-id (select-next-player-id (get-in updated-game-model [:players next-player-id :player-index])
                                                   (:players updated-game-model))]
         (-> updated-game-model
             (assoc :game-ended? game-ended?)
             (assoc :next-player-id next-player-id)
-            (assoc-in [:players next-player-id :possible-cards] (possible-cards-for-next-player next-player-id)))))))
+            (assoc-in [:players next-player-id :possible-cards]
+                      (possible-cards-for-next-player next-player-id (:current-trick-cards updated-game-model))))))))
 
 (defn init [player-ids shuffled-cards]
   (let [game-model {:current-round 0
