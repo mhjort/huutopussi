@@ -3,6 +3,7 @@
             [compojure.route :as route]
             [beacon-server.matchmake :as matchmake]
             [beacon-server.game :as game]
+            [ring.adapter.jetty :refer [run-jetty]]
             [ring.util.response :as resp]
             [clojure.tools.logging :as log]
             [ring.middleware.cors :refer [wrap-cors]]
@@ -57,5 +58,10 @@
         (wrap-json-body {:keywords? true})
         (wrap-exception-handling))))
 
-(def prod-app
-  (create-app (atom {})))
+(def production-matches (atom {}))
+(def prod-app (create-app production-matches))
+
+;For REPL Driven development
+;(run-jetty #'prod-app {:join? false :port 3000})
+;(reset! production-matches {})
+
