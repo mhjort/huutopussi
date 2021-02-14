@@ -62,23 +62,21 @@
                 (println "game is" game)
                 [:div
                  [:p (str "Started match with players" (map :name (:players match)))]
-                ; (when game
-                   [:p (str "Current round: " (:current-round game)
-                            ", waiting for player " (:next-player-name game))]
-                   [:p (str "Your hand cards." (if (= player-name (:next-player-name game))
-                                                 "It is your turn to choose card"
-                                                 ""))]
-                   (for [[index card] (doall (map-indexed vector (:cards game)))]
-                     ^{:key card}[:img {:on-click #(re-frame/dispatch [:player-card index])
-                                        :src (card-url card)
-                                        :width "225px"
-                                        :height "315px"}])
-                   [:p "Current trick cards"]
-                   (for [card (map :card (:trick-cards game))]
-                     ^{:key card}[:img {:src (card-url card)
-                                        :width "225px"
-                                        :height "315px"}])
-                ;   )
+                 [:p (str "Current round: " (:current-round game)
+                          ", waiting for player " (:next-player-name game))]
+                 [:p (str "Your hand cards." (if (= player-name (:next-player-name game))
+                                               "It is your turn to choose card"
+                                               ""))]
+                 (for [[index card] (doall (map-indexed vector (:cards game)))]
+                   ^{:key card}[:img {:on-click #(re-frame/dispatch [:player-card index])
+                                      :src (card-url card)
+                                      :width "225px"
+                                      :height "315px"}])
+                 [:p "Current trick cards"]
+                 (for [card (map :card (:trick-cards game))]
+                   ^{:key card}[:img {:src (card-url card)
+                                      :width "225px"
+                                      :height "315px"}])
                  ]))])
 
 (defn- show-match-start []
