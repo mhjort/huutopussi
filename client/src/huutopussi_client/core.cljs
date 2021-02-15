@@ -1,6 +1,6 @@
-(ns ^:figwheel-hooks huutopussi-beacon.core
+(ns ^:figwheel-hooks huutopussi-client.core
   (:require-macros [cljs.core.async.macros :refer [go]])
-  (:require [huutopussi-beacon.game-client :as game-client]
+  (:require [huutopussi-client.game-client :as game-client]
             [cljs.core.async :refer [<! timeout]]
             [clojure.string :as string]
             [goog.dom :as gdom]

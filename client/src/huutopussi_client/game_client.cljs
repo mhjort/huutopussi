@@ -1,4 +1,4 @@
-(ns ^:figwheel-hooks huutopussi-beacon.game-client
+(ns ^:figwheel-hooks huutopussi-client.game-client
   (:require-macros [cljs.core.async.macros :refer [go go-loop]])
   (:require [cljs-http.client :as http]
             [cljs.core.async :refer [<! timeout]]))

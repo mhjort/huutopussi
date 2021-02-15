@@ -10,3 +10,5 @@ pom.xml.asc
 /.nrepl-port
 .hgignore
 .hg/
+resources/public/main.js
+resources/public/img/*
