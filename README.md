@@ -14,13 +14,10 @@ You will need [Leiningen][] 2.9.1 or above installed.
 
 ## Running
 
-To start a web server for the application, run:
+Build frontend and start the game server:
 
+    ./build
     lein ring server-headless
-
-To start a client. Go to client directory and run:
-
-    lein fig:build
 
 ## License
 

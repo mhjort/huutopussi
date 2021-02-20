@@ -2,7 +2,7 @@
 
 set -u
 
-cd huutopussi-beacon.core
+cd client
 lein fig:min
-cp resources/public/cljs-out/dev-main.js ../resources/public
+cp resources/public/cljs-out/dev-main.js ../resources/public/main.js
 cd -
