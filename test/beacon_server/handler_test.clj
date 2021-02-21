@@ -28,7 +28,9 @@
 
 (def match-with-four-players
   {:declarer "player-1"
-   :status :waiting
+   :status :matched
+   :teams {"Team1" ["player-1" "player-3"]
+           "Team2" ["player-2" "player-4"]}
    :players {"player-1" {:name "player-1-name"
                          :id "player-1"}
              "player-2" {:name "player-2-name"
@@ -39,20 +41,42 @@
                          :id "player-4"}}})
 
 (deftest match
-  (testing "status"
+  (testing "status with waiting"
     (let [{:keys [status body]} (request-with-matches :get "/api/match/match-1" (atom {"match-1" match-with-one-player}))]
       (is (= 200 status))
       (is (= {:id "match-1"
               :status "waiting"
               :declarer "player-1"
+              :teams {}
               :players [{:name "player-1-name"}]}
+             body))))
+  (testing "status with matched"
+    (let [{:keys [status body]} (request-with-matches :get "/api/match/match-1" (atom {"match-1" match-with-four-players}))]
+      (is (= 200 status))
+      (is (= {:id "match-1"
+              :status "matched"
+              :declarer "player-1"
+              :teams {:Team1 ["player-1-name" "player-3-name"]
+                      :Team2 ["player-2-name" "player-4-name"]}
+              :players [{:name "player-1-name"}
+                        {:name "player-2-name"}
+                        {:name "player-3-name"}
+                        {:name "player-4-name"}]}
              body))))
   (testing "mark-ready-to-start"
     (let [{:keys [status body]} (request-with-matches :put
                                                       "/api/match/match-1/ready-to-start/player-1"
-                                                      (atom {"match-1" match-with-one-player}))]
+                                                      (atom {"match-1" match-with-four-players}))]
       (is (= 200 status))
-      (is (= {:id "match-1", :status "started", :declarer "player-1", :players [{:name "player-1-name"}]}
+      (is (= {:id "match-1"
+              :status "matched"
+              :declarer "player-1"
+              :teams {:Team1 ["player-1-name" "player-3-name"]
+                      :Team2 ["player-2-name" "player-4-name"]}
+              :players [{:name "player-1-name"}
+                        {:name "player-2-name"}
+                        {:name "player-3-name"}
+                        {:name "player-4-name"}]}
              body)))))
 
 (deftest game
@@ -69,11 +93,10 @@
             player-a-card (-> body :hand-cards first)
             {:keys [status]} (request-with-matches :put "/api/match/match-1/play/player-1/card/0" matches)
             _ (is (= 200 status))
-            _ (Thread/sleep 10)
+            _ (Thread/sleep 200)
             {:keys [status body]} (request-with-matches :get "/api/match/match-1/status/player-1" matches)
             _ (is (= 200 status))
             _ (is (= {:current-round 0 :next-player-name "player-2-name" :events [{:event-type "card-played" :player "player-1-name" :value player-a-card}]}
                      (select-keys body [:next-player-name :current-round :events])))
             {:keys [body]} (request-with-matches :get "/api/match/match-1/status/player-1?events-since=1" matches)]
         (is (= [] (:events body)))))))
-

@@ -74,12 +74,16 @@
             (assoc-in [:players next-player-id :possible-cards]
                       (possible-cards-for-next-player next-player-id (:current-trick-cards updated-game-model))))))))
 
-(defn init [player-ids shuffled-cards]
-  (let [game-model {:current-round 0
+(defn init [teams shuffled-cards]
+  ;TODO Works only with exactly 2 teams with both having 2 players
+  (let [[team1-first-player team1-second-player team2-first-player team2-second-player] (mapcat val teams)
+        player-ids [team1-first-player team2-first-player team1-second-player team2-second-player]
+        game-model {:current-round 0
                     :next-player-id (first player-ids)
                     :current-trick-cards []
                     :events []
                     :game-ended? false
+                    :teams teams
                     :players (into {} (map (fn [[player-index player-id] cards]
                                              (let [hand-cards (vec cards)]
                                                [player-id {:player-id player-id
@@ -90,19 +94,22 @@
                                            shuffled-cards))}]
     game-model))
 
+(comment
 (let [shuffled-cards (deck/shuffle-for-four-players (deck/card-deck))
-      game-model (init ["a" "b" "c" "d"] (map #(take 2 %) shuffled-cards))
+      game-model (init {"Team1" ["a" "b"]
+                        "Team2" ["c" "d"]} (map #(take 2 %) shuffled-cards))
       do-it (fn [{:keys [next-player-id players] :as game-model}]
               (let [card-to-play (first (get-in players [next-player-id :possible-cards]))]
-                    (println "Player" next-player-id "plays" card-to-play)
+                    (prn "Player" next-player-id "plays" card-to-play)
                     (tick game-model {:card card-to-play})))
       end-result  (-> game-model
      (do-it)
      (do-it)
      (do-it)
      (do-it)
-  ;   (do-it)
+     (do-it)
      (do-it)
      (do-it)
      (do-it))]
-  [(:next-player-id end-result) (:win-card end-result) (:game-ended? end-result) (map :hand-cards (vals (:players end-result)))])
+  [(:next-player-id end-result) (:win-card end-result) (:game-ended? end-result) (:teams end-result) (map :hand-cards (vals (:players end-result)))])
+)
