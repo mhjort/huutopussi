@@ -1,7 +1,7 @@
-(ns huutopussi-beacon.core-test
+(ns huutopussi-client.core-test
     (:require
      [cljs.test :refer-macros [deftest is testing]]
-     [huutopussi-beacon.core :refer [multiply]]))
+     [huutopussi-client.core :refer [multiply]]))
 
 (deftest multiply-test
   (is (= (* 1 2) (multiply 1 2))))
