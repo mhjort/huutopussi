@@ -10,14 +10,16 @@
 (def d-card (pick-card deck "A" :diamonds))
 (def e-card (pick-card deck "K" :clubs))
 (def f-card (pick-card deck "K" :hearts))
+(def teams {"Team1" ["a" "c"] "Team2" ["b" "d"]})
 
 (deftest after-init
-  (let [game-model (model/init ["a" "b" "c" "d"]
+  (let [game-model (model/init teams
                                [[a-card][b-card][c-card][d-card]])]
     (is (= {:current-round 0
             :next-player-id "a"
             :current-trick-cards []
             :game-ended? false
+            :teams teams
             :events []
             :players {"a" {:player-id "a" :player-index 0 :hand-cards [a-card] :possible-cards [a-card]}
                       "b" {:player-id "b" :player-index 1 :hand-cards [b-card] :possible-cards [b-card]}
@@ -26,13 +28,14 @@
            game-model))))
 
 (deftest one-card-played
-  (let [game-model (-> (model/init ["a" "b" "c" "d"]
+  (let [game-model (-> (model/init teams
                                    [[a-card][b-card][c-card][d-card]])
                        (model/tick {:card a-card}))]
     (is (= {:current-round 0
             :next-player-id "b"
             :current-trick-cards [{:card a-card :player "a"}]
             :game-ended? false
+            :teams teams
             :events [{:event-type :card-played :player "a" :value a-card}]
             :players {"a" {:player-id "a" :player-index 0 :hand-cards [] :possible-cards [a-card]}
                       "b" {:player-id "b" :player-index 1 :hand-cards [b-card] :possible-cards [b-card]}
@@ -41,7 +44,7 @@
            game-model))))
 
 (deftest one-round-played
-  (let [game-model (-> (model/init ["a" "b" "c" "d"]
+  (let [game-model (-> (model/init teams
                                    [[a-card e-card f-card][b-card][c-card][d-card]])
                        (model/tick {:card a-card})
                        (model/tick {:card b-card})
@@ -51,6 +54,7 @@
             :next-player-id "a"
             :current-trick-cards []
             :game-ended? true
+            :teams teams
             :events [{:event-type :card-played :player "a" :value a-card}
                      {:event-type :card-played :player "b" :value b-card}
                      {:event-type :card-played :player "c" :value c-card}
