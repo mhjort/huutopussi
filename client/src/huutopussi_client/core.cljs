@@ -61,7 +61,7 @@
                     game @(re-frame/subscribe [:game])]
                 (println "game is" game)
                 [:div
-                 [:p (str "Started match with players" (map :name (:players match)))]
+                 [:p (str "Started match with teams" (:teams match))]
                  [:p (str "Current round: " (:current-round game)
                           ", waiting for player " (:next-player-name game))]
                  [:p (str "Your hand cards." (if (= player-name (:next-player-name game))
