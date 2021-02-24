@@ -61,7 +61,15 @@
 (def production-matches (atom {}))
 (def prod-app (create-app production-matches))
 
+(defn reset []
+  (game/stop-game-loops production-matches)
+  (reset! production-matches {}))
+
+(defn start []
+  (run-jetty #'prod-app {:join? false :port 3000}))
+
 ;For REPL Driven development
-;(run-jetty #'prod-app {:join? false :port 3000})
-;(reset! production-matches {})
+;(start)
+;(reset)
+;(game/stop-game-loops production-matches)
 

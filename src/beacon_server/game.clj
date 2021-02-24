@@ -2,7 +2,7 @@
   (:require [beacon-server.deck :as deck]
             [beacon-server.model :as model]
             [clojure.pprint :refer [pprint]]
-            [clojure.core.async :refer [chan go go-loop <! >!]]
+            [clojure.core.async :refer [chan go go-loop >! alts!]]
             [clojure.tools.logging :as log]))
 
 (defn- pretty-print [m]
@@ -30,17 +30,26 @@
      :current-trick-cards (:current-trick-cards game-model)}))
 
 (defn- start-game-loop [matches id]
-  (go-loop []
-           (let [{:keys [game-model players]} (get @matches id)
-                 next-player-id (:next-player-id game-model)
-                 input-channel (get-in players [next-player-id :input-channel])
-                 card (<! input-channel)
-                 _ (log/info "Got input card" card)
-                 updated-game-model (model/tick game-model {:card card})]
-             (log/info "Card" card "played and model updated to" (pretty-print updated-game-model))
-             (swap! matches #(update % id assoc :game-model updated-game-model))
-             (when-not (:game-ended? updated-game-model)
-               (recur)))))
+  (let [poison-pill (chan)]
+    (go-loop []
+             (let [{:keys [game-model players]} (get @matches id)
+                   next-player-id (:next-player-id game-model)
+                   input-channel (get-in players [next-player-id :input-channel])
+                   [card ch] (alts! [input-channel poison-pill])]
+               (when (= input-channel ch)
+                 (log/info "Got input card" card)
+                 (let [updated-game-model (model/tick game-model {:card card})]
+                   (log/info "Card" card "played and model updated to" (pretty-print updated-game-model))
+                   (swap! matches #(update % id assoc :game-model updated-game-model))
+                   (when-not (:game-ended? updated-game-model)
+                     (recur))))))
+    poison-pill))
+
+(defn stop-game-loops [matches]
+  (doseq [[id {:keys [game-loop-poison-pill]}] @matches]
+    (when game-loop-poison-pill
+      (log/info "Stopping game loop for game" id)
+      (go (>! game-loop-poison-pill true)))))
 
 (defn- map-kv [f m]
   (reduce-kv #(assoc %1 %2 (f %3)) {} m))
@@ -50,9 +59,10 @@
         _ (log/info "All players ready. Starting match" (pretty-print match))
         shuffled-cards (deck/shuffle-for-four-players (deck/card-deck))
         players-with-input-channels (map-kv #(assoc % :input-channel (chan)) players)
-        game-model (model/init teams shuffled-cards)]
-    (swap! matches #(update % id assoc :status :started :game-model game-model :players players-with-input-channels))
-    (start-game-loop matches id)))
+        game-model (model/init teams shuffled-cards)
+        _ (swap! matches #(update % id assoc :status :started :game-model game-model :players players-with-input-channels))
+        game-loop-poison-pill (start-game-loop matches id)]
+    (swap! matches #(update % id assoc :game-loop-poison-pill game-loop-poison-pill))))
 
 (defn play-card [matches id player-id card-index]
   (log/info "Going to play card with match" id "player-id" player-id "and index" card-index)
