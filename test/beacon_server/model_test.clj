@@ -36,7 +36,7 @@
             :current-trick-cards [{:card a-card :player "a"}]
             :game-ended? false
             :teams teams
-            :events [{:event-type :card-played :player "a" :value a-card}]
+            :events [{:event-type :card-played :player "a" :value {:card a-card}}]
             :players {"a" {:player-id "a" :player-index 0 :hand-cards [] :possible-cards [a-card]}
                       "b" {:player-id "b" :player-index 1 :hand-cards [b-card] :possible-cards [b-card]}
                       "c" {:player-id "c" :player-index 2 :hand-cards [c-card] :possible-cards [c-card]}
@@ -55,11 +55,11 @@
             :current-trick-cards []
             :game-ended? true
             :teams teams
-            :events [{:event-type :card-played :player "a" :value a-card}
-                     {:event-type :card-played :player "b" :value b-card}
-                     {:event-type :card-played :player "c" :value c-card}
-                     {:event-type :card-played :player "d" :value d-card}
-                     {:event-type :round-won :player "a" :value a-card}]
+            :events [{:event-type :card-played :player "a" :value {:card a-card}}
+                     {:event-type :card-played :player "b" :value {:card b-card}}
+                     {:event-type :card-played :player "c" :value {:card c-card}}
+                     {:event-type :card-played :player "d" :value {:card d-card}}
+                     {:event-type :round-won :player "a" :value {:card a-card :last-round? true}}]
             :players {"a" {:player-id "a" :player-index 0 :hand-cards [e-card f-card] :possible-cards [e-card f-card]}
                       "b" {:player-id "b" :player-index 1 :hand-cards [] :possible-cards [b-card]}
                       "c" {:player-id "c" :player-index 2 :hand-cards [] :possible-cards [c-card]}

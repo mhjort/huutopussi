@@ -27,6 +27,7 @@
      :next-player-name (player-name-by-id (:next-player-id game-model))
      :possible-cards (get-in game-model [:players player-id :possible-cards])
      :hand-cards (get-in game-model [:players player-id :hand-cards])
+     :scores (model/calculate-scores game-model)
      :current-trick-cards (:current-trick-cards game-model)}))
 
 (defn- start-game-loop [matches id]

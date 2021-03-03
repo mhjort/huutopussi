@@ -40,10 +40,33 @@
         next-player (first (filter #(= next-player-index (:player-index %)) (vals players)))]
     (:player-id next-player)))
 
+(defn calculate-scores [{:keys [events teams]}]
+  (let [team-by-player (reduce-kv (fn [m k [p1 p2]]
+                                    (assoc m p1 k p2 k))
+                                  {}
+                                  teams)
+        initial-scores (reduce-kv (fn [m team _]
+                                    (assoc m team 0))
+                                  {}
+                                  teams)]
+    (:scores (reduce (fn [m {:keys [event-type value player]}]
+                       (if (= :card-played event-type)
+                         (update m :cards conj (:card value))
+                         (let [team (get team-by-player player)
+                               extra-trick-points (if (:last-round? value)
+                                                    20
+                                                    0)
+                               trick-points (+ extra-trick-points
+                                               (reduce + (map :points (:cards m))))]
+                           (-> (assoc m :cards [])
+                               (update-in [:scores team] + trick-points)))))
+                     {:scores initial-scores}
+                     events))))
+
 (defn tick [{:keys [next-player-id players] :as game-model} {:keys [card]}]
   (let [updated-game-model (-> game-model
                                (update :current-trick-cards conj {:player next-player-id :card card})
-                               (update :events conj {:event-type :card-played :player next-player-id :value card})
+                               (update :events conj {:event-type :card-played :player next-player-id :value {:card card}})
                                (update-in [:players next-player-id :hand-cards] (fn [hand-cards]
                                                                                      (vec (remove #(= card %) hand-cards)))))
         possible-cards-for-next-player (fn [next-player current-trick-cards]
@@ -63,7 +86,7 @@
             (update :current-round inc)
             (assoc :game-ended? game-ended?)
             (assoc :current-trick-cards [])
-            (update :events conj {:event-type :round-won :player win-player :value win-card})
+            (update :events conj {:event-type :round-won :player win-player :value {:card win-card :last-round? game-ended?}})
             (assoc :next-player-id win-player)
             (assoc-in [:players win-player :possible-cards] (possible-cards-for-next-player win-player []))))
       (let [next-player-id (select-next-player-id (get-in updated-game-model [:players next-player-id :player-index])
@@ -94,22 +117,26 @@
                                            shuffled-cards))}]
     game-model))
 
-(comment
-(let [shuffled-cards (deck/shuffle-for-four-players (deck/card-deck))
-      game-model (init {"Team1" ["a" "b"]
-                        "Team2" ["c" "d"]} (map #(take 2 %) shuffled-cards))
-      do-it (fn [{:keys [next-player-id players] :as game-model}]
-              (let [card-to-play (first (get-in players [next-player-id :possible-cards]))]
-                    (prn "Player" next-player-id "plays" card-to-play)
-                    (tick game-model {:card card-to-play})))
-      end-result  (-> game-model
-     (do-it)
-     (do-it)
-     (do-it)
-     (do-it)
-     (do-it)
-     (do-it)
-     (do-it)
-     (do-it))]
-  [(:next-player-id end-result) (:win-card end-result) (:game-ended? end-result) (:teams end-result) (map :hand-cards (vals (:players end-result)))])
-)
+(defn- play-test-game []
+  (let [shuffled-cards (deck/shuffle-for-four-players (deck/card-deck))
+        game-model (init {"Team1" ["a" "b"]
+                          "Team2" ["c" "d"]} (map #(take 2 %) shuffled-cards))
+        do-it (fn [{:keys [next-player-id players] :as game-model}]
+                (let [card-to-play (first (get-in players [next-player-id :possible-cards]))]
+                  (prn "Player" next-player-id "plays" card-to-play)
+                  (tick game-model {:card card-to-play})))
+        end-result  (-> game-model
+                        (do-it)
+                        (do-it)
+                        (do-it)
+                        (do-it)
+                        (do-it)
+                        (do-it)
+                        (do-it)
+                        (do-it))]
+    end-result))
+
+;(calculate-scores (play-test-game))
+;(let [end-result (play-test-game)]
+;      [(:next-player-id end-result) (:win-card end-result) (:game-ended? end-result) (:teams end-result) (map :hand-cards (vals (:players end-result)))])
+

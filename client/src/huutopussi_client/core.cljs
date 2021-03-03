@@ -41,10 +41,12 @@
                     possible-cards
                     current-round
                     events
+                    scores
                     next-player-name]} (<! (game-client/get-game-status match-id player-id))]
         (re-frame/dispatch [:game-status {:cards hand-cards
                                            :possible-cards possible-cards
                                            :events events
+                                           :scores scores
                                            :current-round (inc current-round) ;Server round is zero based
                                            :next-player-name next-player-name
                                            :trick-cards current-trick-cards}]))
@@ -59,12 +61,12 @@
      :started (let [player-name @(re-frame/subscribe [:player-name])
                     match @(re-frame/subscribe [:match])
                     game @(re-frame/subscribe [:game])]
-                (println "game is" game)
                 [:div
-                 [:p (str "Started match with teams" (:teams match))]
+                 [:p (str "Started match with teams: " (:teams match))]
+                 [:p (str "Current scores: " (:scores game))]
                  [:p (str "Current round: " (:current-round game)
                           ", waiting for player " (:next-player-name game))]
-                 [:p (str "Your hand cards." (if (= player-name (:next-player-name game))
+                 [:p (str "Your hand cards. " (if (= player-name (:next-player-name game))
                                                "It is your turn to choose card"
                                                ""))]
                  (for [[index card] (doall (map-indexed vector (:cards game)))]
@@ -87,17 +89,23 @@
               :on-change #(reset! player-name (-> % .-target .-value))}]
      [:button {:type "submit" :value "Start Match!" :on-click #(re-frame/dispatch [:start-matchmake @player-name])} "Start Match!"]]))
 
+(defn format-event [{:keys [event-type player value]}]
+  (let [{:keys [card last-round?]} value
+        {:keys [text suit]} card
+        card-str (str text " " suit)
+        trick-str (if last-round?
+                   "last trick"
+                   "trick")]
+    (if (= "card-played" event-type)
+      (str "Player " player " played card: " card-str)
+      (str "Player " player " won the " trick-str " with card " card-str))))
+
 (defn events-view []
   (let [events @(re-frame/subscribe [:events])]
     [:div
      [:ul
       (for [event events]
-        (let [{:keys [event-type player value]} event
-              card-str (str (:text value) " " (:suit value))
-              event-text (if (= "card-played" event-type)
-                           (str "Player " player " played card: " card-str)
-                           (str "Player " player " won the tick with card " card-str))]
-          [:li event-text]))]]))
+        ^{:key event}[:li (format-event event)])]]))
 
 (defn home []
   (let [state (re-frame/subscribe [:state-change])]
