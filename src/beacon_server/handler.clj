@@ -36,11 +36,10 @@
        (resp/response (matchmake/mark-as-ready-to-start (get-matches request) id player)))
   (GET "/api/match/:id/status/:player" [id player :as request]
        (resp/response (game/get-game-status (get-matches request) id player (-> request :params :events-since))))
-  (PUT "/api/match/:id/play/:player/card/:card-index" [id player card-index :as request]
-       (resp/response (game/play-card (get-matches request) id player (Integer/parseInt card-index))))
+  (PUT "/api/match/:id/run/:player/action" [id player :as request]
+       (resp/response (game/run-action (get-matches request) id player (:body request))))
   (route/resources "/")
   (route/not-found "Not Found"))
-
 
 (defn create-app [matches]
   (let [wrap-with-matches (fn [handler]

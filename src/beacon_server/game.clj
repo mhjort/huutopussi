@@ -65,13 +65,15 @@
         game-loop-poison-pill (start-game-loop matches id)]
     (swap! matches #(update % id assoc :game-loop-poison-pill game-loop-poison-pill))))
 
-(defn play-card [matches id player-id card-index]
-  (log/info "Going to play card with match" id "player-id" player-id "and index" card-index)
-  (let [{:keys [game-model] :as match} (get @matches id)]
-    (if (= (:next-player-id game-model) player-id)
-      (let [player-details (get-in game-model [:players player-id])
-            card (get-in player-details [:hand-cards card-index])
-            input-channel (get-in match [:players player-id :input-channel])]
-        (go (>! input-channel card))
-        {:ok true})
-      {:ok false})))
+(defn run-action [matches id player-id {:keys [action-type card-index] :as action}]
+  (case action-type
+    "play-card" (do
+                  (log/info "Going to run action with match" id "player-id" player-id "and action" action)
+                  (let [{:keys [game-model] :as match} (get @matches id)]
+                    (if (= (:next-player-id game-model) player-id)
+                      (let [player-details (get-in game-model [:players player-id])
+                            card (get-in player-details [:hand-cards card-index])
+                            input-channel (get-in match [:players player-id :input-channel])]
+                        (go (>! input-channel card))
+                        {:ok true})
+                      {:ok false})))))
