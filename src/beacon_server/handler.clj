@@ -46,7 +46,7 @@
   (let [wrap-with-matches (fn [handler]
                             (fn [request]
                               (handler (assoc request :matches matches))))]
-    (-> app-routes
+    (-> #'app-routes
         (wrap-with-matches)
         ;Note! This should be first because middleware sets json content type header
         ;only if there are no other content type headers already present
@@ -58,18 +58,17 @@
         (wrap-json-body {:keywords? true})
         (wrap-exception-handling))))
 
-(def production-matches (atom {}))
-(def prod-app (create-app production-matches))
+(defonce production-matches (atom {}))
+(defonce prod-app (create-app production-matches))
 
 (defn reset []
   (game/stop-game-loops production-matches)
   (reset! production-matches {}))
 
 (defn start []
-  (run-jetty #'prod-app {:join? false :port 3000}))
+  (run-jetty prod-app {:join? false :port 3000}))
 
 ;For REPL Driven development
 ;(start)
 ;(reset)
 ;(game/stop-game-loops production-matches)
-
