@@ -63,6 +63,17 @@
                      {:scores initial-scores}
                      events))))
 
+(defn- possible-trumps [cards]
+  (let [king-or-queen? #(some #{%} #{12 13})]
+    (->> cards
+         (reduce (fn [m {:keys [suit value]}]
+                   (if (king-or-queen? value)
+                     (update m suit inc)
+                     m))
+                 {:hearts 0 :clubs 0 :spades 0 :diamonds 0})
+         (filter (fn [[_ king-or-queen-count]] (= 2 king-or-queen-count)))
+         (map (fn [[suit _]] suit)))))
+
 (defn tick [{:keys [next-player-id players] :as game-model} {:keys [card]}]
   (let [updated-game-model (-> game-model
                                (update :current-trick-cards conj {:player next-player-id :card card})
@@ -81,11 +92,16 @@
       (let [win-card (winning-card (map :card (:current-trick-cards updated-game-model)) nil)
             win-player (-> (filter #(= win-card (:card %)) (:current-trick-cards updated-game-model))
                            first
-                           :player)]
+                           :player)
+            possible-trumps-for-win-player (possible-trumps (possible-cards-for-next-player win-player []))
+            possible-actions-for-win-player (map (fn [suit] {:action-type "declare-trump" :suit suit})
+                                                 possible-trumps-for-win-player)]
+
         (-> updated-game-model
             (update :current-round inc)
             (assoc :game-ended? game-ended?)
             (assoc :current-trick-cards [])
+            (assoc-in [:players win-player :possible-actions] possible-actions-for-win-player)
             (update :events conj {:event-type :round-won :player win-player :value {:card win-card :last-round? game-ended?}})
             (assoc :next-player-id win-player)
             (assoc-in [:players win-player :possible-cards] (possible-cards-for-next-player win-player []))))
@@ -93,6 +109,7 @@
                                                   (:players updated-game-model))]
         (-> updated-game-model
             (assoc :game-ended? game-ended?)
+            (assoc-in [:players next-player-id :possible-actions] [])
             (assoc :next-player-id next-player-id)
             (assoc-in [:players next-player-id :possible-cards]
                       (possible-cards-for-next-player next-player-id (:current-trick-cards updated-game-model))))))))

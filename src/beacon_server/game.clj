@@ -26,6 +26,7 @@
      :events (map #(update % :player player-name-by-id) (drop events-since (:events game-model)))
      :next-player-name (player-name-by-id (:next-player-id game-model))
      :possible-cards (get-in game-model [:players player-id :possible-cards])
+     :possible-actions (get-in game-model [:players player-id :possible-actions])
      :hand-cards (get-in game-model [:players player-id :hand-cards])
      :scores (model/calculate-scores game-model)
      :current-trick-cards (:current-trick-cards game-model)}))

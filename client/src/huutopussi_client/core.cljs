@@ -39,12 +39,14 @@
       (let [{:keys [hand-cards
                     current-trick-cards
                     possible-cards
+                    possible-actions
                     current-round
                     events
                     scores
                     next-player-name]} (<! (game-client/get-game-status match-id player-id))]
         (re-frame/dispatch [:game-status {:cards hand-cards
                                            :possible-cards possible-cards
+                                           :possible-actions possible-actions
                                            :events events
                                            :scores scores
                                            :current-round (inc current-round) ;Server round is zero based
@@ -53,22 +55,31 @@
       (<! (timeout 500))
       (recur))))
 
+(defn- show-possible-trumps [{:keys [possible-actions]}]
+  (if (seq possible-actions)
+    (str " . You can declare trumps: " (map :suit possible-actions))
+    ""))
+
+(defn- show-next-player [player-name game]
+  (if (= player-name (:next-player-name game))
+    "It is your turn to choose card"
+    (str "Waiting for player " (:next-player-name game))))
+
 (defn- show-match-status []
   [:div
    (condp = @(re-frame/subscribe [:state-change])
-     :finding-match [:p (str "Finding match for player: " @(re-frame/subscribe [:player-name]))]
+     :finding-match [:p (str "Finding match for a player: " @(re-frame/subscribe [:player-name]))]
      :matched [:p (str "Found match with players" (map :name (:players @(re-frame/subscribe [:match]))))]
      :started (let [player-name @(re-frame/subscribe [:player-name])
                     match @(re-frame/subscribe [:match])
                     game @(re-frame/subscribe [:game])]
                 [:div
-                 [:p (str "Started match with teams: " (:teams match))]
+                 [:p (str "Started the match with teams: " (:teams match))]
                  [:p (str "Current scores: " (:scores game))]
-                 [:p (str "Current round: " (:current-round game)
-                          ", waiting for player " (:next-player-name game))]
-                 [:p (str "Your hand cards. " (if (= player-name (:next-player-name game))
-                                               "It is your turn to choose card"
-                                               ""))]
+                 [:p (str "Current round: " (:current-round game) ". "
+                          (show-next-player player-name game)
+                          (show-possible-trumps game))]
+                 [:p "Your hand cards:"]
                  (for [[index card] (doall (map-indexed vector (:cards game)))]
                    ^{:key card}[:img {:on-click #(re-frame/dispatch [:player-card index])
                                       :src (card-url card)
