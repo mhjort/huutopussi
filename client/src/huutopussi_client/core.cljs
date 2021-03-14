@@ -116,13 +116,14 @@
        (show-match-status))
      (events-view)]))
 
-(defn mount [el]
-  (re-frame/dispatch-sync [:change-state :enter-name])
+(defn mount [el start-matchmake?]
+  (when start-matchmake?
+    (re-frame/dispatch-sync [:change-state :enter-name]))
   (rdom/render [home] el))
 
-(defn mount-app-element []
+(defn mount-app-element [start-matchmake?]
   (when-let [el (get-app-element)]
-    (mount el)))
+    (mount el start-matchmake?)))
 
 (re-frame/reg-event-fx
   :start-matchmake
@@ -214,9 +215,13 @@
     (println "updating state to" state)
     (assoc db :state state)))
 
+(defn ^:after-load after-reload-callback []
+  (mount-app-element false)
+  (println "Code reloaded!"))
+
 (defonce init-application
   (do
     (println "Starting huutopussi application")
-    (mount-app-element)
+    (mount-app-element true)
     true))
 
