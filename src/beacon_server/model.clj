@@ -51,16 +51,18 @@
                                   {}
                                   teams)]
     (:scores (reduce (fn [m {:keys [event-type value player]}]
-                       (if (= :card-played event-type)
-                         (update m :cards conj (:card value))
-                         (let [team (get team-by-player player)
-                               extra-trick-points (if (:last-round? value)
-                                                    20
-                                                    0)
-                               trick-points (+ extra-trick-points
-                                               (reduce + (map :points (:cards m))))]
-                           (-> (assoc m :cards [])
-                               (update-in [:scores team] + trick-points)))))
+                       (let [team (get team-by-player player)]
+                         (case event-type
+                           :card-played (update m :cards conj (:card value))
+                           :round-won (let [extra-trick-points (if (:last-round? value)
+                                                                 20
+                                                                 0)
+                                            trick-points (+ extra-trick-points
+                                                            (reduce + (map :points (:cards m))))]
+                                        (-> (assoc m :cards [])
+                                            (update-in [:scores team] + trick-points)))
+                           :trump-declared (let [trump-points (get-in deck/all-suits [(:suit value) :trump-points])]
+                                             (update-in m [:scores team] + trump-points)))))
                      {:scores initial-scores}
                      events))))
 
@@ -155,7 +157,8 @@
                                                [player-id {:player-id player-id
                                                            :player-index player-index
                                                            :hand-cards hand-cards
-                                                           :possible-cards hand-cards}]))
+                                                           :possible-cards hand-cards
+                                                           :possible-actions []}]))
                                            (map-indexed vector player-ids)
                                            shuffled-cards))}]
     game-model))

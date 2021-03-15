@@ -1,6 +1,12 @@
 (ns beacon-server.deck
   (:require [clojure.string :as string]))
 
+(def all-suits
+  {:hearts {:trump-points 100}
+   :diamonds {:trump-points 80}
+   :clubs {:trump-points 60}
+   :spades {:trump-points 40}})
+
 (defn card-deck []
   (let [card-value-text-and-points (fn [i]
                               (condp = i
@@ -10,7 +16,7 @@
                                 13 [13 "K" 4]
                                 14 [15 "A" 11]
                                 [i (str i) 0]))
-        cards (for [suit [:hearts :clubs :spades :diamonds]
+        cards (for [suit (keys all-suits)
                     value (range 6 15)]
                 (let [[final-value text points] (card-value-text-and-points value)]
                   {:suit suit :value final-value :text text :points points}))]
