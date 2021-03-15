@@ -23,6 +23,7 @@
     (when-not (= :started status)
       (throw (Exception. (str "Match " id " status should be started, but was " status))))
     {:current-round (:current-round game-model)
+     :current-trump-suit (:current-trump-suit game-model)
      :events (map #(update % :player player-name-by-id) (drop events-since (:events game-model)))
      :next-player-name (player-name-by-id (:next-player-id game-model))
      :possible-cards (get-in game-model [:players player-id :possible-cards])
@@ -37,11 +38,11 @@
              (let [{:keys [game-model players]} (get @matches id)
                    next-player-id (:next-player-id game-model)
                    input-channel (get-in players [next-player-id :input-channel])
-                   [card ch] (alts! [input-channel poison-pill])]
+                   [action ch] (alts! [input-channel poison-pill])]
                (when (= input-channel ch)
-                 (log/info "Got input card" card)
-                 (let [updated-game-model (model/tick game-model {:card card})]
-                   (log/info "Card" card "played and model updated to" (pretty-print updated-game-model))
+                 (log/info "Got input action" action)
+                 (let [updated-game-model (model/tick game-model action)]
+                   (log/info "Action" action "run and model updated to" (pretty-print updated-game-model))
                    (swap! matches #(update % id assoc :game-model updated-game-model))
                    (when-not (:game-ended? updated-game-model)
                      (recur))))))
@@ -66,15 +67,16 @@
         game-loop-poison-pill (start-game-loop matches id)]
     (swap! matches #(update % id assoc :game-loop-poison-pill game-loop-poison-pill))))
 
-(defn run-action [matches id player-id {:keys [action-type card-index] :as action}]
-  (case action-type
-    "play-card" (do
-                  (log/info "Going to run action with match" id "player-id" player-id "and action" action)
-                  (let [{:keys [game-model] :as match} (get @matches id)]
-                    (if (= (:next-player-id game-model) player-id)
-                      (let [player-details (get-in game-model [:players player-id])
-                            card (get-in player-details [:hand-cards card-index])
-                            input-channel (get-in match [:players player-id :input-channel])]
-                        (go (>! input-channel card))
-                        {:ok true})
-                      {:ok false})))))
+(defn run-action [matches id player-id {:keys [action-type card-index suit] :as action}]
+  (log/info "Going to run action with match" id "player-id" player-id "and action" action)
+  (let [{:keys [game-model] :as match} (get @matches id)]
+    (if (= (:next-player-id game-model) player-id)
+      (let [player-details (get-in game-model [:players player-id])
+            input-channel (get-in match [:players player-id :input-channel])]
+        (case action-type
+          "play-card" (go (>! input-channel {:action-type :play-card
+                                             :card (get-in player-details [:hand-cards card-index])}))
+          "declare-trump" (go (>! input-channel {:action-type :declare-trump
+                                                 :suit (keyword suit)})))
+        {:ok true})
+      {:ok false})))

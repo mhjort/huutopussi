@@ -26,10 +26,15 @@
     (let [response ((create-app (atom {})) (mock/request :get "/invalid"))]
       (is (= (:status response) 404)))))
 
-(defn request [method url]
-  (let [{:keys [body status]} ((create-app matches)
-                               (mock/request method url))]
-      {:status status :body (cheshire/parse-string body true)}))
+(defn request
+  ([method url request-body]
+   (let [app (create-app matches)
+         {:keys [body status]} (cond-> (mock/request method url)
+                                 request-body (mock/json-body request-body)
+                                 true app)]
+     {:status status :body (cheshire/parse-string body true)}))
+  ([method url]
+   (request method url nil)))
 
 (def match-with-one-player
   {:declarer "player-1"
@@ -103,7 +108,8 @@
   (testing "after-one-card-played"
     (let [{:keys [body]} (request :get "/api/match/match-1/status/player-1")
           player-a-card (-> body :hand-cards first)
-          {:keys [status]} (request :put "/api/match/match-1/play/player-1/card/0")
+          {:keys [status]} (request :put "/api/match/match-1/run/player-1/action" {:action-type "play-card"
+                                                                                   :card-index 0})
           _ (is (= 200 status))
           _ (Thread/sleep 200)
           {:keys [status body]} (request :get "/api/match/match-1/status/player-1")
