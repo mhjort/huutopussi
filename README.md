@@ -41,3 +41,5 @@ Open http://localhost:3000 to play
 ## License
 
 Copyright © 2020-2021 Markus Hjort
+
+Distributed under the Eclipse Public License version 1.0.
