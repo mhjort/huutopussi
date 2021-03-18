@@ -47,10 +47,20 @@
           (:body response)
           (throw (js/Error. (str "Match mark-as-ready failed with response: " response)))))))
 
-(defn play-card [id player index]
-  (println "Playing card: " index)
-  (go (let [url (str api-url "/match/" id "/play/" player "/card/" index)
-            response (<! (http/put url {:with-credentials? false}))]
+(defn- run-action [id player action]
+  (go (let [url (str api-url "/match/" id "/run/" player "/action")
+            response (<! (http/put url {:json-params action
+                                        :with-credentials? false}))]
         (if (= 200 (:status response))
           (:body response)
           (throw (js/Error. (str "Call to url " url " failed with response: " response)))))))
+
+(defn play-card [id player index]
+  (println "Playing card: " index)
+  (run-action id player {:action-type "play-card"
+                         :card-index index}))
+
+(defn declare-trump [id player suit]
+  (println "Declaring trump: " suit)
+  (run-action id player {:action-type "declare-trump"
+                         :suit suit}))

@@ -10,8 +10,10 @@
                                                :players {"player-b" {:player-id "player-b"
                                                                      :player-index 0
                                                                      :hand-cards ["J"]}}}}})]
-    (is (= {:ok true} (game/play-card matches "match-a" "player-b" 0)))
-    (is (= "J" (<!! input-channel)))))
+    (is (= {:ok true} (game/run-action matches "match-a" "player-b" {:action-type "play-card"
+                                                                     :card-index 0})))
+    (is (= {:action-type :play-card
+            :card "J"} (<!! input-channel)))))
 
 (deftest play-card-returns-false-and-do-not-push-to-input-channel-when-it-is-not-player-turn
   (let [input-channel (chan)
@@ -21,5 +23,6 @@
                                                                      :hand-cards ["J"]}
                                                          "player-c" {:player-id "player-c"
                                                                      :hand-cards ["K"]}}}}})]
-    (is (= {:ok false} (game/play-card matches "match-a" "player-b" 0)))
+    (is (= {:ok false} (game/run-action matches "match-a" "player-b" {:action-type "play-card"
+                                                                      :card-index 0})))
     (is (= nil (poll! input-channel)))))

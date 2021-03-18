@@ -39,36 +39,52 @@
       (let [{:keys [hand-cards
                     current-trick-cards
                     possible-cards
+                    possible-actions
                     current-round
+                    current-trump-suit
                     events
                     scores
                     next-player-name]} (<! (game-client/get-game-status match-id player-id))]
         (re-frame/dispatch [:game-status {:cards hand-cards
                                            :possible-cards possible-cards
+                                           :possible-actions possible-actions
                                            :events events
                                            :scores scores
                                            :current-round (inc current-round) ;Server round is zero based
+                                           :current-trump-suit current-trump-suit
                                            :next-player-name next-player-name
                                            :trick-cards current-trick-cards}]))
       (<! (timeout 500))
       (recur))))
 
+(defn- show-possible-trumps [{:keys [possible-actions]}]
+  (let [declare-trump (fn [suit]
+                        (re-frame/dispatch [:trump-suit suit])
+                        false)]
+    ;TODO Check action type
+    (for [suit (map :suit possible-actions)]
+      ^{:key suit}[:a {:href "#"
+                       :on-click #(declare-trump suit)}
+                   (str "Declare " suit " trump!")])))
+
+(defn- show-next-player [player-name game]
+  (if (= player-name (:next-player-name game))
+    "It is your turn to choose card"
+    (str "Waiting for player " (:next-player-name game))))
+
 (defn- show-match-status []
   [:div
    (condp = @(re-frame/subscribe [:state-change])
-     :finding-match [:p (str "Finding match for player: " @(re-frame/subscribe [:player-name]))]
+     :finding-match [:p (str "Finding match for a player: " @(re-frame/subscribe [:player-name]))]
      :matched [:p (str "Found match with players" (map :name (:players @(re-frame/subscribe [:match]))))]
      :started (let [player-name @(re-frame/subscribe [:player-name])
                     match @(re-frame/subscribe [:match])
                     game @(re-frame/subscribe [:game])]
                 [:div
-                 [:p (str "Started match with teams: " (:teams match))]
-                 [:p (str "Current scores: " (:scores game))]
-                 [:p (str "Current round: " (:current-round game)
-                          ", waiting for player " (:next-player-name game))]
-                 [:p (str "Your hand cards. " (if (= player-name (:next-player-name game))
-                                               "It is your turn to choose card"
-                                               ""))]
+                 [:p (str "Started the match with teams: " (:teams match))]
+                 [:p (str "Current round: " (:current-round game) ", scores: " (:scores game) ", trump: " (:current-trump-suit game))]
+                 [:p (show-next-player player-name game) (show-possible-trumps game)]
+                 [:p "Your hand cards:"]
                  (for [[index card] (doall (map-indexed vector (:cards game)))]
                    ^{:key card}[:img {:on-click #(re-frame/dispatch [:player-card index])
                                       :src (card-url card)
@@ -96,9 +112,10 @@
         trick-str (if last-round?
                    "last trick"
                    "trick")]
-    (if (= "card-played" event-type)
-      (str "Player " player " played card: " card-str)
-      (str "Player " player " won the " trick-str " with card " card-str))))
+    (case event-type
+      "card-played" (str "Player " player " played card: " card-str)
+      "round-won" (str "Player " player " won the " trick-str " with card " card-str)
+      "trump-declared" (str "Player " player " declared trump with suit " (:suit value)))))
 
 (defn events-view []
   (let [events @(re-frame/subscribe [:events])]
@@ -158,6 +175,12 @@
         {:play-card {:match-id (-> db :match :id) :player-id (:player-id db) :card-index card-index}}
         {:show-error {:message (str "Card " card-to-play " is not one of the possible cards " :possible-cards)}}))))
 
+(re-frame/reg-event-fx
+  :trump-suit
+  (fn [{:keys [db]} [_ suit]]
+    ;TODO Check if user can actually do this
+    {:declare-trump {:match-id (-> db :match :id) :player-id (:player-id db) :suit suit}}))
+
 (re-frame/reg-fx
   :show-error
   (fn [{:keys [message]}]
@@ -167,6 +190,11 @@
   :play-card
   (fn [{:keys [match-id player-id card-index]}]
     (game-client/play-card match-id player-id card-index)))
+
+(re-frame/reg-fx
+  :declare-trump
+  (fn [{:keys [match-id player-id suit]}]
+    (game-client/declare-trump match-id player-id suit)))
 
 (re-frame/reg-fx
   :play-game
