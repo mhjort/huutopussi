@@ -14,13 +14,29 @@ You will need [Leiningen][] 2.9.1 or above installed.
 
 ## Running
 
-To start a web server for the application, run:
+### Development mode (auto reload & REPL)
+
+To start a web server for the application (runs in port 3000), run:
 
     lein ring server-headless
 
 To start a client. Go to client directory and run:
 
     lein fig:build
+
+Open http://localhost:9500 to play
+
+### Production build
+
+Create production uberjar:
+
+    bin/build
+
+Run it
+
+    java jar target/huutopussi-standalone.jar
+
+Open http://localhost:3000 to play
 
 ## License
 
