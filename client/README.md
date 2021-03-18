@@ -1,10 +1,6 @@
-# huutopussi-beacon.core
+# huutopussi-client
 
-FIXME: Write a one-line description of your library/project.
-
-## Overview
-
-FIXME: Write a paragraph about the library/project and highlight its goals.
+This is huutopussi client project implemented using https://github.com/Day8/re-frame
 
 ## Development
 
@@ -29,9 +25,8 @@ To create a production build run:
 	lein clean
 	lein fig:min
 
-
 ## License
 
-Copyright © 2018 FIXME
+Copyright © 2021 Markus Hjort
 
 Distributed under the Eclipse Public License either version 1.0 or (at your option) any later version.
