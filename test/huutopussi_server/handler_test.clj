@@ -1,9 +1,9 @@
-(ns beacon-server.handler-test
+(ns huutopussi-server.handler-test
   (:require [clojure.test :refer [deftest is testing use-fixtures]]
             [cheshire.core :as cheshire]
             [ring.mock.request :as mock]
-            [beacon-server.game :as game]
-            [beacon-server.handler :refer [create-app]]))
+            [huutopussi-server.game :as game]
+            [huutopussi-server.handler :refer [create-app]]))
 
 (def matches (atom {}))
 

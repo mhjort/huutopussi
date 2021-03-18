@@ -1,5 +1,5 @@
-(ns beacon-server.model
-  (:require [beacon-server.deck :as deck]))
+(ns huutopussi-server.model
+  (:require [huutopussi-server.deck :as deck]))
 
 (defn winning-card [cards trump-suit]
   (let [round-suit (:suit (first cards))

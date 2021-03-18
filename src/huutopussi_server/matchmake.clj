@@ -1,6 +1,6 @@
-(ns beacon-server.matchmake
+(ns huutopussi-server.matchmake
   (:require [clojure.data :as data]
-            [beacon-server.game :as game]
+            [huutopussi-server.game :as game]
             [clojure.tools.logging :as log]))
 
 (defn rand-str [len]

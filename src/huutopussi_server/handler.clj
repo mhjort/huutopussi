@@ -1,8 +1,8 @@
-(ns beacon-server.handler
+(ns huutopussi-server.handler
   (:require [compojure.core :refer [defroutes GET POST PUT]]
             [compojure.route :as route]
-            [beacon-server.matchmake :as matchmake]
-            [beacon-server.game :as game]
+            [huutopussi-server.matchmake :as matchmake]
+            [huutopussi-server.game :as game]
             [ring.adapter.jetty :refer [run-jetty]]
             [ring.util.response :as resp]
             [clojure.tools.logging :as log]

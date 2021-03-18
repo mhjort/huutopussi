@@ -1,7 +1,7 @@
-(ns beacon-server.model-test
+(ns huutopussi-server.model-test
   (:require [clojure.test :refer [deftest is]]
-            [beacon-server.deck :as deck :refer [pick-card]]
-            [beacon-server.model :as model]))
+            [huutopussi-server.deck :as deck :refer [pick-card]]
+            [huutopussi-server.model :as model]))
 
 (def deck (deck/card-deck))
 (def a-card (pick-card deck "A" :hearts))

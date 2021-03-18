@@ -1,7 +1,7 @@
-(ns beacon-server.game-test
+(ns huutopussi-server.game-test
   (:require [clojure.test :refer [deftest is]]
             [clojure.core.async :refer [chan <!! poll!]]
-            [beacon-server.game :as game]))
+            [huutopussi-server.game :as game]))
 
 (deftest play-card-returns-ok-and-pushes-to-input-channel-when-it-is-player-turn
   (let [input-channel (chan)

@@ -1,6 +1,6 @@
-(ns beacon-server.game
-  (:require [beacon-server.deck :as deck]
-            [beacon-server.model :as model]
+(ns huutopussi-server.game
+  (:require [huutopussi-server.deck :as deck]
+            [huutopussi-server.model :as model]
             [clojure.pprint :refer [pprint]]
             [clojure.core.async :refer [chan go go-loop >! alts!]]
             [clojure.tools.logging :as log]))

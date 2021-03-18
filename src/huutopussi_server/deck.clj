@@ -1,4 +1,4 @@
-(ns beacon-server.deck
+(ns huutopussi-server.deck
   (:require [clojure.string :as string]))
 
 (def all-suits
