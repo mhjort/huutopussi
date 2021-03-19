@@ -15,11 +15,13 @@
   (gdom/getElement "app"))
 
 (defn card-url [{:keys [suit text]}]
-  (str image-path "/" (if (= "10" text)
-                        "T"
-                        text)
-       (subs (string/upper-case suit) 0 1)
-       ".svg"))
+  (let [postfix (condp = text
+                  "J" "11"
+                  "Q" "12"
+                  "K" "13"
+                  "A" "1"
+                  text)]
+    (str image-path "/" suit postfix ".png")))
 
 (defn start-matchmake [{:keys [player-name]}]
   (println "Finding match for" player-name)
@@ -88,13 +90,13 @@
                  (for [[index card] (doall (map-indexed vector (:cards game)))]
                    ^{:key card}[:img {:on-click #(re-frame/dispatch [:player-card index])
                                       :src (card-url card)
-                                      :width "225px"
-                                      :height "315px"}])
+                                      :width "200px"
+                                      :height "auto"}])
                  [:p "Current trick cards"]
                  (for [card (map :card (:trick-cards game))]
                    ^{:key card}[:img {:src (card-url card)
-                                      :width "225px"
-                                      :height "315px"}])
+                                      :width "200px"
+                                      :height "auto"}])
                  ]))])
 
 (defn- show-match-start []
