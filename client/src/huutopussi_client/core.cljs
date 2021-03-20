@@ -11,6 +11,34 @@
 
 (def image-path "/img/cards")
 
+(def suits-fi
+  {"diamonds" "ruutu"
+   "hearts" "hertta"
+   "spades" "pata"
+   "clubs" "risti"})
+
+(def card-text-genitive-fi
+  {"J" "jätkän"
+   "A" "ässän"
+   "K" "kuninkaan"
+   "Q" "rouvan"
+   "10" "kympin"
+   "9" "ysin"
+   "8" "kasin"
+   "7" "seiskan"
+   "6" "kutosen"})
+
+(def card-text-adessive-fi
+  {"J" "jätkällä"
+   "A" "ässällä"
+   "K" "kuninkaalla"
+   "Q" "rouvalla"
+   "10" "kympillä"
+   "9" "ysillä"
+   "8" "kasilla"
+   "7" "seiskalla"
+   "6" "kutosella"})
+
 (defn get-app-element []
   (gdom/getElement "app"))
 
@@ -48,14 +76,14 @@
                     scores
                     next-player-name]} (<! (game-client/get-game-status match-id player-id))]
         (re-frame/dispatch [:game-status {:cards hand-cards
-                                           :possible-cards possible-cards
-                                           :possible-actions possible-actions
-                                           :events events
-                                           :scores scores
-                                           :current-round (inc current-round) ;Server round is zero based
-                                           :current-trump-suit current-trump-suit
-                                           :next-player-name next-player-name
-                                           :trick-cards current-trick-cards}]))
+                                          :possible-cards possible-cards
+                                          :possible-actions possible-actions
+                                          :events events
+                                          :scores scores
+                                          :current-round (inc current-round) ;Server round is zero based
+                                          :current-trump-suit current-trump-suit
+                                          :next-player-name next-player-name
+                                          :trick-cards current-trick-cards}]))
       (<! (timeout 500))
       (recur))))
 
@@ -65,63 +93,68 @@
                         false)]
     ;TODO Check action type
     (for [suit (map :suit possible-actions)]
-      ^{:key suit}[:a {:href "#"
-                       :on-click #(declare-trump suit)}
-                   (str "Declare " suit " trump!")])))
+      ^{:key suit} [:span " "
+                    [:a {:href "#"
+                         :on-click #(declare-trump suit)}
+                     (str "Tee " (get suits-fi suit) "valtti!")]])))
 
 (defn- show-next-player [player-name game]
   (if (= player-name (:next-player-name game))
-    "It is your turn to choose card"
-    (str "Waiting for player " (:next-player-name game))))
+    [:b "Sinun vuorosi lyödä kortti"]
+    (str "Odottaa pelaajaa " (:next-player-name game))))
 
 (defn- show-match-status []
   [:div
    (condp = @(re-frame/subscribe [:state-change])
-     :finding-match [:p (str "Finding match for a player: " @(re-frame/subscribe [:player-name]))]
-     :matched [:p (str "Found match with players" (map :name (:players @(re-frame/subscribe [:match]))))]
+     :finding-match [:p (str "Etistään peliä pelaajalle " @(re-frame/subscribe [:player-name]))]
+     :matched [:p (str "Löytyi peli pelaajille: " (map :name (:players @(re-frame/subscribe [:match]))))]
      :started (let [player-name @(re-frame/subscribe [:player-name])
                     match @(re-frame/subscribe [:match])
                     game @(re-frame/subscribe [:game])]
                 [:div
-                 [:p (str "Started the match with teams: " (:teams match))]
-                 [:p (str "Current round: " (:current-round game) ", scores: " (:scores game) ", trump: " (:current-trump-suit game))]
+                 [:p "Peli aloitettu joukkueilla: " (:teams match)]
+                 [:p (:current-round game) ". tikki, pisteet: " (:scores game)
+                     (when (:current-trump-suit game) (list ", " (get suits-fi (:current-trump-suit game)) "valtti"))]
                  [:p (show-next-player player-name game) (show-possible-trumps game)]
-                 [:p "Your hand cards:"]
+                 [:p "Käsikorttisi:"]
                  (for [[index card] (doall (map-indexed vector (:cards game)))]
                    ^{:key card}[:img {:on-click #(re-frame/dispatch [:player-card index])
                                       :src (card-url card)
                                       :width "200px"
                                       :height "auto"}])
-                 [:p "Current trick cards"]
+                 [:p "Tikin kortit:"]
                  (for [card (map :card (:trick-cards game))]
                    ^{:key card}[:img {:src (card-url card)
                                       :width "200px"
-                                      :height "auto"}])
-                 ]))])
+                                      :height "auto"}])]))])
+
 
 (defn- show-match-start []
   (let [player-name (atom "")]
     [:div
-     [:label "Enter your name"]
+     [:label "Syötä nimesi "]
      [:input {:type "text"
               :on-change #(reset! player-name (-> % .-target .-value))}]
-     [:button {:type "submit" :value "Start Match!" :on-click #(re-frame/dispatch [:start-matchmake @player-name])} "Start Match!"]]))
+     " "
+     [:button {:type "submit" :value "Käynnistä peli!" :on-click #(re-frame/dispatch [:start-matchmake @player-name])} "Käynnistä peli!"]]))
 
 (defn format-event [{:keys [event-type player value]}]
   (let [{:keys [card last-round?]} value
         {:keys [text suit]} card
-        card-str (str text " " suit)
+        card-str-genitive (str (get suits-fi suit) (get card-text-genitive-fi text))
+        card-str-adessive (str (get suits-fi suit) (get card-text-adessive-fi text))
         trick-str (if last-round?
-                   "last trick"
-                   "trick")]
+                   "viimeisen tikin"
+                   "tikin")]
     (case event-type
-      "card-played" (str "Player " player " played card: " card-str)
-      "round-won" (str "Player " player " won the " trick-str " with card " card-str)
-      "trump-declared" (str "Player " player " declared trump with suit " (:suit value)))))
+      "card-played" (str player " löi " card-str-genitive)
+      "round-won" (str player " vei " trick-str " " card-str-adessive)
+      "trump-declared" (str player " teki " (get suits-fi (:suit value)) "valtin"))))
 
 (defn events-view []
   (let [events @(re-frame/subscribe [:events])]
     [:div
+     [:p "Pelitapahtumat:"]
      [:ul
       (for [event events]
         ^{:key event}[:li (format-event event)])]]))
@@ -175,7 +208,7 @@
           is-possible-card? (boolean (some #{card-to-play} possible-cards))]
       (if is-possible-card?
         {:play-card {:match-id (-> db :match :id) :player-id (:player-id db) :card-index card-index}}
-        {:show-error {:message (str "Card " card-to-play " is not one of the possible cards " :possible-cards)}}))))
+        {:show-error {:message (str "Kortti " card-to-play " ei ole yksi pelattavista korteista " :possible-cards)}}))))
 
 (re-frame/reg-event-fx
   :trump-suit
