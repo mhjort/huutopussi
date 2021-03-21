@@ -96,8 +96,8 @@
                  (for [card (map :card (:trick-cards game))]
                    ^{:key card}[:img {:src (card-url card)
                                       :width "200px"
-                                      :height "auto"}])
-                 ]))])
+                                      :height "auto"}])]))])
+
 
 (defn- show-match-start []
   (let [player-name (atom "")]
@@ -123,8 +123,8 @@
   (let [events @(re-frame/subscribe [:events])]
     [:div
      [:ul
-      (for [event events]
-        ^{:key event}[:li (format-event event)])]]))
+      (for [event (take 2 (reverse events))]
+        ^{:key event} [:li (format-event event)])]]))
 
 (defn home []
   (let [state (re-frame/subscribe [:state-change])]
