@@ -2,7 +2,6 @@
   (:require-macros [cljs.core.async.macros :refer [go]])
   (:require [huutopussi-client.game-client :as game-client]
             [cljs.core.async :refer [<! timeout]]
-            [clojure.string :as string]
             [goog.dom :as gdom]
             [re-frame.core :as re-frame]
             [reagent.dom :as rdom]))
@@ -90,13 +89,20 @@
 (defn- show-possible-trumps [{:keys [possible-actions]}]
   (let [declare-trump (fn [suit]
                         (re-frame/dispatch [:trump-suit suit])
+                        false)
+        ask-for-trump (fn [target-player]
+                        (re-frame/dispatch [:trump-question target-player])
                         false)]
-    ;TODO Check action type
-    (for [suit (map :suit possible-actions)]
-      ^{:key suit} [:span " "
-                    [:a {:href "#"
-                         :on-click #(declare-trump suit)}
-                     (str "Tee " (get suits-fi suit) "valtti!")]])))
+    (for [{:keys [action-type suit target-player]} possible-actions]
+      (case action-type
+        "declare-trump" ^{:key suit}[:span " "
+                                     [:a {:href "#"
+                                          :on-click #(declare-trump suit)}
+                                      (str "Tee " (get suits-fi suit) "valtti!")]]
+        "ask-for-trump" ^{:key target-player} [:span " "
+                                               [:a {:href "#"
+                                                    :on-click #(ask-for-trump target-player)}
+                                                (str "Kysy onko pelaajalla " target-player " valtti!")]]))))
 
 (defn- show-next-player [player-name game]
   (if (= player-name (:next-player-name game))
@@ -128,7 +134,6 @@
                                       :width "200px"
                                       :height "auto"}])]))])
 
-
 (defn- show-match-start []
   (let [player-name (atom "")]
     [:div
@@ -149,7 +154,8 @@
     (case event-type
       "card-played" (str player " löi " card-str-genitive)
       "round-won" (str player " vei " trick-str " " card-str-adessive)
-      "trump-declared" (str player " teki " (get suits-fi (:suit value)) "valtin"))))
+      "trump-declared" (str player " teki " (get suits-fi (:suit value)) "valtin")
+      "asked-for-trump" (str player " kysyi onko tiimikaverilla valttia"))))
 
 (defn events-view []
   (let [events @(re-frame/subscribe [:events])]
@@ -216,6 +222,14 @@
     ;TODO Check if user can actually do this
     {:declare-trump {:match-id (-> db :match :id) :player-id (:player-id db) :suit suit}}))
 
+(re-frame/reg-event-fx
+  :trump-question
+  (fn [{:keys [db]} [_ target-player]]
+    ;TODO Check if user can actually do this
+    {:ask-for-trump {:match-id (-> db :match :id)
+                     :player-id (:player-id db)
+                     :target-player target-player}}))
+
 (re-frame/reg-fx
   :show-error
   (fn [{:keys [message]}]
@@ -230,6 +244,11 @@
   :declare-trump
   (fn [{:keys [match-id player-id suit]}]
     (game-client/declare-trump match-id player-id suit)))
+
+(re-frame/reg-fx
+  :ask-for-trump
+  (fn [{:keys [match-id player-id target-player]}]
+    (game-client/ask-for-trump match-id player-id target-player)))
 
 (re-frame/reg-fx
   :play-game
@@ -287,4 +306,3 @@
     (println "Starting huutopussi application")
     (mount-app-element true)
     true))
-

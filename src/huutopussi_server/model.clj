@@ -1,5 +1,6 @@
 (ns huutopussi-server.model
-  (:require [huutopussi-server.deck :as deck]))
+  (:require [huutopussi-server.deck :as deck]
+            [medley.core :as medley]))
 
 (defn winning-card [cards trump-suit]
   (let [round-suit (:suit (first cards))
@@ -52,7 +53,7 @@
                                   teams)]
     (:scores (reduce (fn [m {:keys [event-type value player]}]
                        (let [team (get team-by-player player)]
-                         (case event-type
+                         (condp = event-type
                            :card-played (update m :cards conj (:card value))
                            :round-won (let [extra-trick-points (if (:last-round? value)
                                                                  20
@@ -62,7 +63,8 @@
                                         (-> (assoc m :cards [])
                                             (update-in [:scores team] + trick-points)))
                            :trump-declared (let [trump-points (get-in deck/all-suits [(:suit value) :trump-points])]
-                                             (update-in m [:scores team] + trump-points)))))
+                                             (update-in m [:scores team] + trump-points))
+                           m)))
                      {:scores initial-scores}
                      events))))
 
@@ -82,14 +84,33 @@
       (filter #(= :trump-declared (:event-type %)))
       (map #(get-in % [:value :suit]))))
 
-(defn- possible-actions-for-player [cards events]
-  (let [possible-trumps-for-player (remove (set (already-declared-trump-suits events))
-                                           (possible-trumps cards))]
-    (map (fn [suit] {:action-type "declare-trump" :suit suit})
-         possible-trumps-for-player)))
+(defn- possible-trumps-for-player [player-id {:keys [events] :as game-model}]
+  (let [player-hand-cards (get-in game-model [:players player-id :hand-cards])]
+    (remove (set (already-declared-trump-suits events)) (possible-trumps player-hand-cards))))
+
+(defn- team-mate-for-player [player-id teams]
+  (->> (filter #(some #{player-id} %) (vals teams))
+       (first)
+       (remove #{player-id})
+       (first)))
+
+(defn- possible-actions-for-player [player-id {:keys [teams events] :as game-model}]
+  (let [player-hand-cards (get-in game-model [:players player-id :hand-cards])
+        team-mate-player-id (team-mate-for-player player-id teams)
+        possible-player-trumps (possible-trumps-for-player player-id game-model)]
+    (if (seq possible-player-trumps)
+      (map (fn [suit] {:action-type "declare-trump" :suit suit})
+           possible-player-trumps)
+      (let [previous-event (last events)]
+        (if (and (= :round-won (:event-type previous-event))
+                 (< 1 (count player-hand-cards))) ;At least two cards left
+          [{:action-type "ask-for-trump" :target-player team-mate-player-id}]
+          [])))))
 
 (defn- play-card [{:keys [next-player-id players current-trump-suit] :as game-model} {:keys [card]}]
-  (let [updated-game-model (-> game-model
+  (let [reset-possible-actions #(assoc % :possible-actions [])
+        updated-game-model (-> game-model
+                               (update :players #(medley/map-vals reset-possible-actions %))
                                (update :current-trick-cards conj {:player next-player-id :card card})
                                (update :events conj {:event-type :card-played :player next-player-id :value {:card card}})
                                (update-in [:players next-player-id :hand-cards] (fn [hand-cards]
@@ -107,40 +128,50 @@
             win-player (-> (filter #(= win-card (:card %)) (:current-trick-cards updated-game-model))
                            first
                            :player)
-            possible-actions-for-win-player (possible-actions-for-player (possible-cards-for-next-player win-player [])
-                                                                         (:events updated-game-model))]
-        (-> updated-game-model
-            (update :current-round inc)
-            (assoc :game-ended? game-ended?)
-            (assoc :current-trick-cards [])
-            (assoc-in [:players win-player :possible-actions] possible-actions-for-win-player)
-            (update :events conj {:event-type :round-won :player win-player :value {:card win-card :last-round? game-ended?}})
-            (assoc :next-player-id win-player)
-            (assoc-in [:players win-player :possible-cards] (possible-cards-for-next-player win-player []))))
+            trick-ended-model (-> updated-game-model
+                                  (update :current-round inc)
+                                  (assoc :game-ended? game-ended?)
+                                  (assoc :current-trick-cards [])
+                                  (update :events conj {:event-type :round-won :player win-player :value {:card win-card :last-round? game-ended?}})
+                                  (assoc :next-player-id win-player)
+                                  (assoc-in [:players win-player :possible-cards] (possible-cards-for-next-player win-player [])))]
+        (assoc-in trick-ended-model [:players win-player :possible-actions] (possible-actions-for-player win-player trick-ended-model)))
       (let [next-player-id (select-next-player-id (get-in updated-game-model [:players next-player-id :player-index])
                                                   (:players updated-game-model))]
         (-> updated-game-model
             (assoc :game-ended? game-ended?)
-            (assoc-in [:players next-player-id :possible-actions] [])
             (assoc :next-player-id next-player-id)
             (assoc-in [:players next-player-id :possible-cards]
                       (possible-cards-for-next-player next-player-id (:current-trick-cards updated-game-model))))))))
 
-(defn- declare-trump [{:keys [next-player-id] :as game-model} {:keys [suit]}]
+(defn- declare-trump [{:keys [next-player-id] :as game-model} {:keys [suit player-id]}]
   (let [hand-cards (get-in game-model [:players next-player-id :hand-cards])
-        trump-event {:event-type :trump-declared :player next-player-id :value {:suit suit}}
+        trump-event {:event-type :trump-declared :player player-id :value {:suit suit}}
         updated-game-model (-> game-model
                                (update :events conj trump-event)
                                (assoc :current-trump-suit suit))]
     (-> updated-game-model
-        (assoc-in [:players next-player-id :possible-actions] (possible-actions-for-player hand-cards
-                                                                                           (:events updated-game-model)))
+        (assoc-in [:players next-player-id :possible-actions] (possible-actions-for-player next-player-id
+                                                                                           updated-game-model))
         (assoc-in [:players next-player-id :possible-cards] (possible-cards [] hand-cards suit)))))
+
+(defn- ask-for-trump [{:keys [next-player-id teams] :as game-model} {:keys [player-id]}]
+  (let [target-player (team-mate-for-player player-id teams)
+        possible-trump (first (possible-trumps-for-player target-player game-model))]
+    (cond-> game-model
+      true (update :events conj {:event-type :asked-for-trump
+                                 :player next-player-id
+                                 :value {:target-player target-player}})
+
+      true (assoc-in [:players next-player-id :possible-actions] [])
+      possible-trump (declare-trump {:suit possible-trump
+                                     :player-id target-player}))))
 
 (defn tick [game-model {:keys [action-type] :as action}]
   (case action-type
     :play-card (play-card game-model action)
-    :declare-trump (declare-trump game-model action)))
+    :declare-trump (declare-trump game-model action)
+    :ask-for-trump (ask-for-trump game-model action)))
 
 (defn init [teams shuffled-cards]
   ;TODO Works only with exactly 2 teams with both having 2 players
@@ -164,23 +195,32 @@
     game-model))
 
 (defn play-test-game []
-  (let [shuffled-cards (deck/shuffle-for-four-players (deck/card-deck))
+  ;(let [shuffled-cards (deck/shuffle-for-four-players (deck/card-deck))
+  (let [shuffled-cards (deck/same-suit-for-four-players (deck/card-deck))
         game-model (init {"Team1" ["a" "b"]
                           "Team2" ["c" "d"]} (map #(take 9 %) shuffled-cards))
-        declare-first-possible-trump (fn [{:keys [next-player-id players] :as game-model}]
-                                       (if-let [trump-to-declare (-> players (get-in [next-player-id :possible-actions]) first :suit)]
-                                         (do
-                                           (prn "Player" next-player-id "declares" trump-to-declare)
-                                           (tick game-model {:action-type :declare-trump :suit trump-to-declare}))
-                                         game-model))
+        _ (prn "Team mate" (team-mate-for-player "a" (:teams game-model)))
+        do-first-action (fn [{:keys [next-player-id players] :as game-model}]
+                          (if-let [action (-> players (get-in [next-player-id :possible-actions]) first)]
+                            (if (= "declare-trump" (:action-type action))
+                              (do
+                                (prn "Player" next-player-id "declares" action)
+                                (tick game-model {:action-type :declare-trump
+                                                  :player-id next-player-id
+                                                  :suit (:suit action)}))
+                              (do
+                                (prn "Player" next-player-id "Ask for trump from player" action)
+                                (tick game-model {:action-type :ask-for-trump
+                                                  :player-id next-player-id})))
+                            game-model))
         play-first-possible-card (fn [{:keys [players next-player-id] :as game-model}]
                                    (let [card-to-play (first (get-in players [next-player-id :possible-cards]))]
                                      (prn "Player" next-player-id "plays" card-to-play)
                                      (tick game-model {:action-type :play-card :card card-to-play})))
         do-it (fn [game-model]
                 (-> game-model
-                    (declare-first-possible-trump)
-                    (declare-first-possible-trump)
+                    (do-first-action)
+                    (do-first-action)
                     (play-first-possible-card)))
         end-result  (-> game-model
                         (do-it)
@@ -188,10 +228,17 @@
                         (do-it)
                         (do-it)
                         (do-it)
+                       (do-it)
                         (do-it)
                         (do-it)
                         (do-it)
-                        (do-it))]
+                        (do-it)
+                        (do-it)
+                        (do-it)
+                        (do-it)
+                        (do-it)
+                        (do-it)
+                       (do-it))]
     end-result))
 
 ;(play-test-game)
