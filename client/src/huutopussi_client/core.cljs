@@ -106,7 +106,7 @@
 (defn- show-match-status []
   [:div
    (condp = @(re-frame/subscribe [:state-change])
-     :finding-match [:p (str "Etistään peliä pelaajalle " @(re-frame/subscribe [:player-name]))]
+     :finding-match [:p (str "Etsitään peliä pelaajalle " @(re-frame/subscribe [:player-name]))]
      :matched [:p (str "Löytyi peli pelaajille: " (map :name (:players @(re-frame/subscribe [:match]))))]
      :started (let [player-name @(re-frame/subscribe [:player-name])
                     match @(re-frame/subscribe [:match])
