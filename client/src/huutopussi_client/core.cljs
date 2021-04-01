@@ -129,10 +129,12 @@
                                       :width "200px"
                                       :height "auto"}])
                  [:p "Tikin kortit:"]
-                 (for [card (map :card (:trick-cards game))]
-                   ^{:key card}[:img {:src (card-url card)
-                                      :width "200px"
-                                      :height "auto"}])]))])
+                 [:div {:style {:display "flex"}}
+                  (for [{:keys [card player]} (:trick-cards game)]
+                    ^{:key card}[:div {:style {:width "200px"}} [:img {:src (card-url card)
+                                                                       :width "100%"
+                                                                       :height "auto"}]
+                                 [:span [:center player]]])]]))])
 
 (defn- show-match-start []
   (let [player-name (atom "")]
