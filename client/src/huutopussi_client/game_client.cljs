@@ -64,3 +64,7 @@
   (println "Declaring trump: " suit)
   (run-action id player {:action-type "declare-trump"
                          :suit suit}))
+
+(defn ask-for-trump [id player target-player]
+  (println "Asking for trump from" target-player)
+  (run-action id player {:action-type "ask-for-trump"}))

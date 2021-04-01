@@ -61,7 +61,11 @@
                      {:event-type :card-played :player "c" :value {:card c-card}}
                      {:event-type :card-played :player "d" :value {:card d-card}}
                      {:event-type :round-won :player "a" :value {:card a-card :last-round? true}}]
-            :players {"a" {:player-id "a" :player-index 0 :hand-cards [e-card f-card] :possible-cards [e-card f-card] :possible-actions []}
+            :players {"a" {:player-id "a"
+                           :player-index 0
+                           :hand-cards [e-card f-card]
+                           :possible-cards [e-card f-card]
+                           :possible-actions  [{:action-type "ask-for-trump" :target-player "c"}]}
                       "b" {:player-id "b" :player-index 1 :hand-cards [] :possible-cards [b-card] :possible-actions []}
                       "c" {:player-id "c" :player-index 2 :hand-cards [] :possible-cards [c-card] :possible-actions []}
                       "d" {:player-id "d" :player-index 3 :hand-cards [] :possible-cards [d-card] :possible-actions []}}}

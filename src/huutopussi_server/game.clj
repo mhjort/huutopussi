@@ -1,6 +1,7 @@
 (ns huutopussi-server.game
   (:require [huutopussi-server.deck :as deck]
             [huutopussi-server.model :as model]
+            [clojure.walk :as walk]
             [clojure.pprint :refer [pprint]]
             [clojure.core.async :refer [chan go go-loop >! alts!]]
             [clojure.tools.logging :as log]))
@@ -14,23 +15,38 @@
       (throw (Exception. (str "Could not find match with id " id " from " @matches))))
     match))
 
+(defn- player-name-by-id [match id]
+  (get-in match [:players id :name]))
+
+(defn- replace-player-ids-with-player-names [match game-model]
+  ;This is a security feature. Internally model uses player ids that also act as api keys
+  (walk/prewalk
+    (fn [form]
+      (cond
+        (:player form) (update form :player (partial player-name-by-id match))
+        (:next-player-id form) (update form :next-player-id (partial player-name-by-id match))
+        (:target-player form) (update form :target-player (partial player-name-by-id match))
+        :else form))
+    game-model))
+
 (defn get-game-status [matches id player-id events-since-str]
   (let [events-since (if events-since-str
                        (Integer/parseInt events-since-str)
                        0)
         {:keys [status game-model] :as match} (get-match matches id)
-        player-name-by-id #(get-in match [:players % :name])]
+        scores (model/calculate-scores game-model)
+        visible-game-model (replace-player-ids-with-player-names match game-model)]
     (when-not (= :started status)
       (throw (Exception. (str "Match " id " status should be started, but was " status))))
-    {:current-round (:current-round game-model)
-     :current-trump-suit (:current-trump-suit game-model)
-     :events (map #(update % :player player-name-by-id) (drop events-since (:events game-model)))
-     :next-player-name (player-name-by-id (:next-player-id game-model))
-     :possible-cards (get-in game-model [:players player-id :possible-cards])
-     :possible-actions (get-in game-model [:players player-id :possible-actions])
-     :hand-cards (get-in game-model [:players player-id :hand-cards])
-     :scores (model/calculate-scores game-model)
-     :current-trick-cards (:current-trick-cards game-model)}))
+    {:current-round (:current-round visible-game-model)
+     :current-trump-suit (:current-trump-suit visible-game-model)
+     :events (drop events-since (:events visible-game-model))
+     :next-player-name (:next-player-id visible-game-model)
+     :possible-cards (get-in visible-game-model [:players player-id :possible-cards])
+     :possible-actions (get-in visible-game-model [:players player-id :possible-actions])
+     :hand-cards (get-in visible-game-model [:players player-id :hand-cards])
+     :scores scores
+     :current-trick-cards (:current-trick-cards visible-game-model)}))
 
 (defn- start-game-loop [matches id]
   (let [poison-pill (chan)]
@@ -77,6 +93,9 @@
           "play-card" (go (>! input-channel {:action-type :play-card
                                              :card (get-in player-details [:hand-cards card-index])}))
           "declare-trump" (go (>! input-channel {:action-type :declare-trump
-                                                 :suit (keyword suit)})))
+                                                 :player-id player-id
+                                                 :suit (keyword suit)}))
+          "ask-for-trump" (go (>! input-channel {:action-type :ask-for-trump
+                                                 :player-id player-id})))
         {:ok true})
       {:ok false})))
