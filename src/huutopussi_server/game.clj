@@ -75,10 +75,13 @@
 
 (defn start [matches id]
   (let [{:keys [players teams] :as match} (get-match matches id)
+        starting-players (cycle (mapcat vector
+                                 (first (vals teams))
+                                 (second (vals teams))))
         _ (log/info "All players ready. Starting match" (pretty-print match))
         shuffled-cards (deck/shuffle-for-four-players (deck/card-deck))
         players-with-input-channels (map-kv #(assoc % :input-channel (chan)) players)
-        game-model (model/init teams shuffled-cards)
+        game-model (model/init teams (first starting-players) shuffled-cards)
         _ (swap! matches #(update % id assoc :status :started :game-model game-model :players players-with-input-channels))
         game-loop-poison-pill (start-game-loop matches id)]
     (swap! matches #(update % id assoc :game-loop-poison-pill game-loop-poison-pill))))
