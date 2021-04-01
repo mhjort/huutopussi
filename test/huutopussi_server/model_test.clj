@@ -14,6 +14,7 @@
 
 (deftest after-init
   (let [game-model (model/init teams
+                               "a"
                                [[a-card][b-card][c-card][d-card]])]
     (is (= {:current-round 0
             :next-player-id "a"
@@ -29,6 +30,7 @@
 
 (deftest one-card-played
   (let [game-model (-> (model/init teams
+                                   "a"
                                    [[a-card][b-card][c-card][d-card]])
                        (model/tick {:action-type :play-card
                                     :card a-card}))]
@@ -46,6 +48,7 @@
 
 (deftest one-round-played
   (let [game-model (-> (model/init teams
+                                   "a"
                                    [[a-card e-card f-card][b-card][c-card][d-card]])
                        (model/tick {:action-type :play-card :card a-card})
                        (model/tick {:action-type :play-card :card b-card})

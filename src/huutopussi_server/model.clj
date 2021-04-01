@@ -203,12 +203,12 @@
     :ask-for-half-trump (ask-for-half-trump game-model action)
     :ask-for-trump (ask-for-trump game-model action)))
 
-(defn init [teams shuffled-cards]
+(defn init [teams starting-player shuffled-cards]
   ;TODO Works only with exactly 2 teams with both having 2 players
   (let [[team1-first-player team1-second-player team2-first-player team2-second-player] (mapcat val teams)
         player-ids [team1-first-player team2-first-player team1-second-player team2-second-player]
         game-model {:current-round 0
-                    :next-player-id (first player-ids)
+                    :next-player-id starting-player
                     :current-trick-cards []
                     :events []
                     :game-ended? false
@@ -228,7 +228,7 @@
   ;(let [shuffled-cards (deck/shuffle-for-four-players (deck/card-deck))
   (let [shuffled-cards (deck/same-suit-for-four-players (deck/card-deck))
         game-model (init {"Team1" ["a" "b"]
-                          "Team2" ["c" "d"]} (map #(take 9 %) shuffled-cards))
+                          "Team2" ["c" "d"]} "a" (map #(take 9 %) shuffled-cards))
         _ (prn "Team mate" (team-mate-for-player "a" (:teams game-model)))
         do-first-action (fn [{:keys [next-player-id players] :as game-model}]
                           (if-let [action (-> players (get-in [next-player-id :possible-actions]) first)]
