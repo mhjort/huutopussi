@@ -45,8 +45,8 @@
 (def match-with-four-players
   {:declarer "player-1"
    :status :matched
-   :teams {"Team1" ["player-1" "player-3"]
-           "Team2" ["player-2" "player-4"]}
+   :teams {:Team1 {:players ["player-1" "player-3"]}
+           :Team2 {:players ["player-2" "player-4"]}}
    :players {"player-1" {:name "player-1-name"
                          :id "player-1"}
              "player-2" {:name "player-2-name"
@@ -97,9 +97,10 @@
              body)))))
 
 (deftest game
-  (reset! matches {"match-1" (assoc match-with-four-players :status :started)})
+  (reset! matches {"match-1" match-with-four-players})
   (testing "initial-game"
     (game/start matches "match-1")
+    (Thread/sleep 200)
     (is (= :started (:status (get @matches "match-1"))))
     (let [{:keys [status body]} (request :get "/api/match/match-1/status/player-1")]
       (is (= 200 status))

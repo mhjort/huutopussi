@@ -3,7 +3,7 @@
             [huutopussi-server.model :as model]
             [clojure.walk :as walk]
             [clojure.pprint :refer [pprint]]
-            [clojure.core.async :refer [chan go go-loop >! alts!]]
+            [clojure.core.async :refer [chan go go-loop <! >! alts! timeout]]
             [clojure.tools.logging :as log]))
 
 (defn- pretty-print [m]
@@ -38,6 +38,8 @@
         visible-game-model (replace-player-ids-with-player-names match game-model)]
     (when-not (= :started status)
       (throw (Exception. (str "Match " id " status should be started, but was " status))))
+    (when-not game-model
+      (throw (Exception. (str "Started match " id " does not have game model"))))
     {:current-round (:current-round visible-game-model)
      :current-trump-suit (:current-trump-suit visible-game-model)
      :events (drop events-since (:events visible-game-model))
@@ -49,20 +51,20 @@
      :current-trick-cards (:current-trick-cards visible-game-model)}))
 
 (defn- start-game-loop [matches id]
-  (let [poison-pill (chan)]
-    (go-loop []
-             (let [{:keys [game-model players]} (get @matches id)
-                   next-player-id (:next-player-id game-model)
-                   input-channel (get-in players [next-player-id :input-channel])
-                   [action ch] (alts! [input-channel poison-pill])]
-               (when (= input-channel ch)
-                 (log/info "Got input action" action)
-                 (let [updated-game-model (model/tick game-model action)]
-                   (log/info "Action" action "run and model updated to" (pretty-print updated-game-model))
-                   (swap! matches #(update % id assoc :game-model updated-game-model))
-                   (when-not (:game-ended? updated-game-model)
-                     (recur))))))
-    poison-pill))
+  (let [poison-pill (chan)
+        game-ended (go-loop []
+                            (let [{:keys [game-model players]} (get @matches id)
+                                  next-player-id (:next-player-id game-model)
+                                  input-channel (get-in players [next-player-id :input-channel])
+                                  [action ch] (alts! [input-channel poison-pill])]
+                              (when (= input-channel ch)
+                                (log/info "Got input action" action)
+                                (let [updated-game-model (model/tick game-model action)]
+                                  (log/info "Action" action "run and model updated to" (pretty-print updated-game-model))
+                                  (swap! matches #(update % id assoc :game-model updated-game-model))
+                                  (when-not (:game-ended? updated-game-model)
+                                    (recur))))))]
+    [game-ended poison-pill]))
 
 (defn stop-game-loops [matches]
   (doseq [[id {:keys [game-loop-poison-pill]}] @matches]
@@ -70,21 +72,40 @@
       (log/info "Stopping game loop for game" id)
       (go (>! game-loop-poison-pill true)))))
 
-(defn- map-kv [f m]
+(defn- map-vals [f m]
   (reduce-kv #(assoc %1 %2 (f %3)) {} m))
+
+(defn start-match-loop [matches teams id players starting-players]
+  (let [poison-pill (chan)]
+    (go-loop [starting-players-in-order starting-players]
+             ;TODO Rename to match loop poison pill
+             (swap! matches #(update % id assoc :game-loop-poison-pill poison-pill))
+             (let [shuffled-cards (deck/shuffle-for-four-players (deck/card-deck))
+                   game-model (model/init teams (first starting-players-in-order) shuffled-cards)
+                   _ (swap! matches #(update % id assoc :status :started :game-model game-model :players players))
+                   [game-ended game-loop-poison-pill] (start-game-loop matches id)
+                   [_ ch] (alts! [game-ended poison-pill])]
+               (if (= poison-pill ch)
+                 (do (>! game-loop-poison-pill true)
+                     (log/info "Match" id "ended"))
+                 (do
+                   (log/info "Game ended. Starting new one in 15 seconds")
+                   ;TODO We should listen to poison-pill in here too
+                   (<! (timeout 15000))
+                   (recur (rest starting-players-in-order))))))))
 
 (defn start [matches id]
   (let [{:keys [players teams] :as match} (get-match matches id)
+        flatted-teams (map-vals (fn [{:keys [players]}]
+                                  players)
+                                teams)
         starting-players (cycle (mapcat vector
-                                 (first (vals teams))
-                                 (second (vals teams))))
+                                        (first (vals flatted-teams))
+                                        (second (vals flatted-teams))))
         _ (log/info "All players ready. Starting match" (pretty-print match))
-        shuffled-cards (deck/shuffle-for-four-players (deck/card-deck))
-        players-with-input-channels (map-kv #(assoc % :input-channel (chan)) players)
-        game-model (model/init teams (first starting-players) shuffled-cards)
-        _ (swap! matches #(update % id assoc :status :started :game-model game-model :players players-with-input-channels))
-        game-loop-poison-pill (start-game-loop matches id)]
-    (swap! matches #(update % id assoc :game-loop-poison-pill game-loop-poison-pill))))
+        players-with-input-channels (map-vals #(assoc % :input-channel (chan)) players)]
+    (start-match-loop matches flatted-teams id players-with-input-channels starting-players))
+  @matches)
 
 (defn run-action [matches id player-id {:keys [action-type card-index suit] :as action}]
   (log/info "Going to run action with match" id "player-id" player-id "and action" action)
