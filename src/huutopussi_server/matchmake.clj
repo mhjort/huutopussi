@@ -21,16 +21,22 @@
       {:id id
        :status status
        :declarer declarer
-       :teams (reduce-kv (fn [m team-name player-ids]
+       :teams (reduce-kv (fn [m team-name {player-ids :players}]
                            (assoc m (name team-name) (map #(:name (get players %)) player-ids)))
                          {}
                          teams)
        :players (mapv #(select-keys % [:name]) (vals players))})
     (throw (Exception. (str "No such match: " id)))))
 
+(get-match (atom {"1" {:teams {"ab" {:players ["a" "b"]}
+                               "cd" {:players ["c" "d"]}}
+                       :players {"a" {:name "jaska"}}}}) "1")
+
 (defn- form-teams [players]
-  {"Team1" (map :id (take 2 (vals players)))
-   "Team2" (map :id (drop 2 (vals players)))})
+  {"Team1" {:players (map :id (take 2 (vals players)))
+            :score 0}
+   "Team2" {:players (map :id (drop 2 (vals players)))
+            :score 0}})
 
 (defn find-match [matches player]
   (log/info "Finding match for" player)
