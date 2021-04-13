@@ -22,8 +22,12 @@
                   {:suit suit :value final-value :text text :points points}))]
     cards))
 
+(defn- sort-hand [cards]
+  (reverse (sort-by (juxt :suit :value) cards)))
+
 (defn shuffle-for-four-players [deck]
-  (partition 9 (shuffle deck)))
+  (let [shuffled-hands (partition 9 (shuffle deck))]
+    (map sort-hand shuffled-hands)))
 
 (defn same-suit-for-four-players [deck]
   (partition 9 deck))
