@@ -187,6 +187,9 @@
       true (update :events conj {:event-type :asked-for-half-trump
                                  :player next-player-id
                                  :value {:target-player target-player :suit suit}})
+      true (update :events conj {:event-type :answered-to-half-trump
+                                 :player target-player
+                                 :value {:answer trump-can-be-made? :suit suit}})
       true (assoc-in [:players next-player-id :possible-actions] [])
       trump-can-be-made? (declare-trump {:suit suit
                                          :player-id next-player-id}))))

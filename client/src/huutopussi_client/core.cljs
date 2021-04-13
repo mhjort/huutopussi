@@ -153,7 +153,7 @@
      [:button {:type "submit" :value "Käynnistä peli!" :on-click #(re-frame/dispatch [:start-matchmake @player-name])} "Käynnistä peli!"]]))
 
 (defn format-event [{:keys [event-type player value]}]
-  (let [{:keys [card last-round?]} value
+  (let [{:keys [card last-round? answer]} value
         {:keys [text suit]} card
         card-str-genitive (str (get suits-fi suit) (get card-text-genitive-fi text))
         card-str-adessive (str (get suits-fi suit) (get card-text-adessive-fi text))
@@ -165,6 +165,9 @@
       "round-won" (str player " vei " trick-str " " card-str-adessive)
       "trump-declared" (str player " teki " (get suits-fi (:suit value)) "valtin")
       "asked-for-half-trump" (str player " kysyi onko tiimikaverilla " (get suits-fi (:suit value)) "puolikasta")
+      "answered-to-half-trump" (str player " vastasi, että " (if answer
+                                                               "löytyy"
+                                                               "ei löydy"))
       "asked-for-trump" (str player " kysyi onko tiimikaverilla valttia"))))
 
 (defn events-view []
