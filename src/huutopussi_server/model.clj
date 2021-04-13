@@ -173,7 +173,9 @@
       true (update :events conj {:event-type :asked-for-trump
                                  :player next-player-id
                                  :value {:target-player target-player}})
-
+      true (update :events conj {:event-type :answered-to-trump
+                                 :player target-player
+                                 :value {:answer (not (nil? possible-trump)) :suit possible-trump}})
       true (assoc-in [:players next-player-id :possible-actions] [])
       possible-trump (declare-trump {:suit possible-trump
                                      :player-id target-player}))))

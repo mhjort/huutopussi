@@ -168,6 +168,9 @@
       "answered-to-half-trump" (str player " vastasi, että " (if answer
                                                                "löytyy"
                                                                "ei löydy"))
+      "answered-to-trump" (str player " vastasi, että " (if answer
+                                                          "löytyy valtti"
+                                                          "ei löydy valttia"))
       "asked-for-trump" (str player " kysyi onko tiimikaverilla valttia"))))
 
 (defn events-view []
