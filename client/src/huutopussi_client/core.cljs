@@ -172,11 +172,12 @@
 
 (defn events-view []
   (let [events @(re-frame/subscribe [:events])]
-    [:div
-     [:p "Pelitapahtumat:"]
-     [:ul
-      (for [event (take 2 (reverse events))]
-        ^{:key event} [:li (format-event event)])]]))
+    (when events
+      [:div
+       [:p "Pelitapahtumat:"]
+       [:ul
+        (for [event (take 3 (reverse events))]
+          ^{:key event} [:li (format-event event)])]])))
 
 (defn home []
   (let [state (re-frame/subscribe [:state-change])]
