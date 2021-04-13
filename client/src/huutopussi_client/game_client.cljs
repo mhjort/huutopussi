@@ -68,3 +68,7 @@
 (defn ask-for-trump [id player target-player]
   (println "Asking for trump from" target-player)
   (run-action id player {:action-type "ask-for-trump"}))
+
+(defn ask-for-half-trump [id player target-player suit]
+  (println "Asking for half trump" suit "from" target-player)
+  (run-action id player {:action-type "ask-for-half-trump" :suit suit}))

@@ -90,6 +90,9 @@
   (let [declare-trump (fn [suit]
                         (re-frame/dispatch [:trump-suit suit])
                         false)
+        ask-for-half-trump (fn [target-player suit]
+                             (re-frame/dispatch [:half-trump-question [target-player suit]])
+                             false)
         ask-for-trump (fn [target-player]
                         (re-frame/dispatch [:trump-question target-player])
                         false)]
@@ -101,7 +104,7 @@
                                       (str "Tee " (get suits-fi suit) "valtti!")]]
         "ask-for-half-trump" ^{:key suit} [:span " "
                                            [:a {:href "#"
-                                                :on-click #(ask-for-trump target-player)}
+                                                :on-click #(ask-for-half-trump target-player suit)}
                                             (str "Kysy onko pelaajalla " target-player " " (get suits-fi suit) "puolikasta!")]]
         "ask-for-trump" ^{:key target-player} [:span " "
                                                [:a {:href "#"
@@ -161,6 +164,7 @@
       "card-played" (str player " löi " card-str-genitive)
       "round-won" (str player " vei " trick-str " " card-str-adessive)
       "trump-declared" (str player " teki " (get suits-fi (:suit value)) "valtin")
+      "asked-for-half-trump" (str player " kysyi onko tiimikaverilla " (get suits-fi (:suit value)) "puolikasta")
       "asked-for-trump" (str player " kysyi onko tiimikaverilla valttia"))))
 
 (defn events-view []
@@ -236,6 +240,15 @@
                      :player-id (:player-id db)
                      :target-player target-player}}))
 
+(re-frame/reg-event-fx
+  :half-trump-question
+  (fn [{:keys [db]} [_ [target-player suit]]]
+    ;TODO Check if user can actually do this
+    {:ask-for-half-trump {:match-id (-> db :match :id)
+                          :player-id (:player-id db)
+                          :suit suit
+                          :target-player target-player}}))
+
 (re-frame/reg-fx
   :show-error
   (fn [{:keys [message]}]
@@ -255,6 +268,11 @@
   :ask-for-trump
   (fn [{:keys [match-id player-id target-player]}]
     (game-client/ask-for-trump match-id player-id target-player)))
+
+(re-frame/reg-fx
+  :ask-for-half-trump
+  (fn [{:keys [match-id player-id target-player suit]}]
+    (game-client/ask-for-half-trump match-id player-id target-player suit)))
 
 (re-frame/reg-fx
   :play-game

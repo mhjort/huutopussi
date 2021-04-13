@@ -178,10 +178,24 @@
       possible-trump (declare-trump {:suit possible-trump
                                      :player-id target-player}))))
 
+(defn- ask-for-half-trump [{:keys [next-player-id teams] :as game-model} {:keys [player-id suit]}]
+  (let [target-player (team-mate-for-player player-id teams)
+        player-hand-cards (get-in game-model [:players target-player :hand-cards])
+        possible-half-trumps (possible-half-trumps player-hand-cards)
+        trump-can-be-made? (some #{suit} possible-half-trumps)]
+    (cond-> game-model
+      true (update :events conj {:event-type :asked-for-half-trump
+                                 :player next-player-id
+                                 :value {:target-player target-player :suit suit}})
+      true (assoc-in [:players next-player-id :possible-actions] [])
+      trump-can-be-made? (declare-trump {:suit suit
+                                         :player-id next-player-id}))))
+
 (defn tick [game-model {:keys [action-type] :as action}]
   (case action-type
     :play-card (play-card game-model action)
     :declare-trump (declare-trump game-model action)
+    :ask-for-half-trump (ask-for-half-trump game-model action)
     :ask-for-trump (ask-for-trump game-model action)))
 
 (defn init [teams shuffled-cards]
