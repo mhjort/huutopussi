@@ -99,6 +99,10 @@
                                      [:a {:href "#"
                                           :on-click #(declare-trump suit)}
                                       (str "Tee " (get suits-fi suit) "valtti!")]]
+        "ask-for-half-trump" ^{:key suit} [:span " "
+                                           [:a {:href "#"
+                                                :on-click #(ask-for-trump target-player)}
+                                            (str "Kysy onko pelaajalla " target-player " " (get suits-fi suit) "puolikasta!")]]
         "ask-for-trump" ^{:key target-player} [:span " "
                                                [:a {:href "#"
                                                     :on-click #(ask-for-trump target-player)}

@@ -68,25 +68,29 @@
                      {:scores initial-scores}
                      events))))
 
-(defn- possible-trumps [cards]
+(defn- same-suit-king-or-queen-count [cards]
   (let [king-or-queen? #(some #{%} #{12 13})]
     (->> cards
          (reduce (fn [m {:keys [suit value]}]
                    (if (king-or-queen? value)
                      (update m suit inc)
                      m))
-                 {:hearts 0 :clubs 0 :spades 0 :diamonds 0})
-         (filter (fn [[_ king-or-queen-count]] (= 2 king-or-queen-count)))
-         (map (fn [[suit _]] suit)))))
+                 {:hearts 0 :clubs 0 :spades 0 :diamonds 0}))))
+
+(defn- possible-trumps [cards]
+  (->> (same-suit-king-or-queen-count cards)
+       (filter (fn [[_ king-or-queen-count]] (= 2 king-or-queen-count)))
+       (map (fn [[suit _]] suit))))
+
+(defn- possible-half-trumps [cards]
+  (->> (same-suit-king-or-queen-count cards)
+       (filter (fn [[_ king-or-queen-count]] (= 1 king-or-queen-count)))
+       (map (fn [[suit _]] suit))))
 
 (defn- already-declared-trump-suits [events]
   (->> events
       (filter #(= :trump-declared (:event-type %)))
       (map #(get-in % [:value :suit]))))
-
-(defn- possible-trumps-for-player [player-id {:keys [events] :as game-model}]
-  (let [player-hand-cards (get-in game-model [:players player-id :hand-cards])]
-    (remove (set (already-declared-trump-suits events)) (possible-trumps player-hand-cards))))
 
 (defn- team-mate-for-player [player-id teams]
   (->> (filter #(some #{player-id} %) (vals teams))
@@ -97,14 +101,20 @@
 (defn- possible-actions-for-player [player-id {:keys [teams events] :as game-model}]
   (let [player-hand-cards (get-in game-model [:players player-id :hand-cards])
         team-mate-player-id (team-mate-for-player player-id teams)
-        possible-player-trumps (possible-trumps-for-player player-id game-model)]
+        possible-player-trumps (remove (set (already-declared-trump-suits events)) (possible-trumps player-hand-cards))
+        possible-player-half-trumps (remove (set (already-declared-trump-suits events)) (possible-half-trumps player-hand-cards))]
     (if (seq possible-player-trumps)
       (map (fn [suit] {:action-type "declare-trump" :suit suit})
            possible-player-trumps)
-      (let [previous-event (last events)]
-        (if (and (= :round-won (:event-type previous-event))
-                 (< 1 (count player-hand-cards))) ;At least two cards left
-          [{:action-type "ask-for-trump" :target-player team-mate-player-id}]
+      (let [previous-event (last events)
+            ask-for-trump-actions (when (< 1 (count player-hand-cards)) ;At least two cards left
+                                    [{:action-type "ask-for-trump" :target-player team-mate-player-id}])
+            ;TODO Check that player can ask same question only once
+            ask-for-half-trump-actions (map (fn [suit]
+                                              {:action-type "ask-for-half-trump" :suit suit :target-player team-mate-player-id})
+                                            possible-player-half-trumps)]
+        (if (= :round-won (:event-type previous-event))
+          (concat ask-for-trump-actions ask-for-half-trump-actions)
           [])))))
 
 (defn- play-card [{:keys [next-player-id players current-trump-suit] :as game-model} {:keys [card]}]
@@ -157,7 +167,8 @@
 
 (defn- ask-for-trump [{:keys [next-player-id teams] :as game-model} {:keys [player-id]}]
   (let [target-player (team-mate-for-player player-id teams)
-        possible-trump (first (possible-trumps-for-player target-player game-model))]
+        player-hand-cards (get-in game-model [:players target-player :hand-cards])
+        possible-trump (first (possible-trumps player-hand-cards))]
     (cond-> game-model
       true (update :events conj {:event-type :asked-for-trump
                                  :player next-player-id
