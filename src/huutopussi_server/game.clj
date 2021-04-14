@@ -95,6 +95,9 @@
           "declare-trump" (go (>! input-channel {:action-type :declare-trump
                                                  :player-id player-id
                                                  :suit (keyword suit)}))
+          "ask-for-half-trump" (go (>! input-channel {:action-type :ask-for-half-trump
+                                                      :suit (keyword suit)
+                                                      :player-id player-id}))
           "ask-for-trump" (go (>! input-channel {:action-type :ask-for-trump
                                                  :player-id player-id})))
         {:ok true})

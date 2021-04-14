@@ -90,6 +90,9 @@
   (let [declare-trump (fn [suit]
                         (re-frame/dispatch [:trump-suit suit])
                         false)
+        ask-for-half-trump (fn [target-player suit]
+                             (re-frame/dispatch [:half-trump-question [target-player suit]])
+                             false)
         ask-for-trump (fn [target-player]
                         (re-frame/dispatch [:trump-question target-player])
                         false)]
@@ -99,6 +102,10 @@
                                      [:a {:href "#"
                                           :on-click #(declare-trump suit)}
                                       (str "Tee " (get suits-fi suit) "valtti!")]]
+        "ask-for-half-trump" ^{:key suit} [:span " "
+                                           [:a {:href "#"
+                                                :on-click #(ask-for-half-trump target-player suit)}
+                                            (str "Kysy onko pelaajalla " target-player " " (get suits-fi suit) "puolikasta!")]]
         "ask-for-trump" ^{:key target-player} [:span " "
                                                [:a {:href "#"
                                                     :on-click #(ask-for-trump target-player)}
@@ -146,7 +153,7 @@
      [:button {:type "submit" :value "Käynnistä peli!" :on-click #(re-frame/dispatch [:start-matchmake @player-name])} "Käynnistä peli!"]]))
 
 (defn format-event [{:keys [event-type player value]}]
-  (let [{:keys [card last-round?]} value
+  (let [{:keys [card last-round? answer]} value
         {:keys [text suit]} card
         card-str-genitive (str (get suits-fi suit) (get card-text-genitive-fi text))
         card-str-adessive (str (get suits-fi suit) (get card-text-adessive-fi text))
@@ -157,15 +164,23 @@
       "card-played" (str player " löi " card-str-genitive)
       "round-won" (str player " vei " trick-str " " card-str-adessive)
       "trump-declared" (str player " teki " (get suits-fi (:suit value)) "valtin")
+      "asked-for-half-trump" (str player " kysyi onko tiimikaverilla " (get suits-fi (:suit value)) "puolikasta")
+      "answered-to-half-trump" (str player " vastasi, että " (if answer
+                                                               "löytyy"
+                                                               "ei löydy"))
+      "answered-to-trump" (str player " vastasi, että " (if answer
+                                                          "löytyy valtti"
+                                                          "ei löydy valttia"))
       "asked-for-trump" (str player " kysyi onko tiimikaverilla valttia"))))
 
 (defn events-view []
   (let [events @(re-frame/subscribe [:events])]
-    [:div
-     [:p "Pelitapahtumat:"]
-     [:ul
-      (for [event (take 2 (reverse events))]
-        ^{:key event} [:li (format-event event)])]]))
+    (when events
+      [:div
+       [:p "Pelitapahtumat:"]
+       [:ul
+        (for [event (take 3 (reverse events))]
+          ^{:key event} [:li (format-event event)])]])))
 
 (defn home []
   (let [state (re-frame/subscribe [:state-change])]
@@ -232,6 +247,15 @@
                      :player-id (:player-id db)
                      :target-player target-player}}))
 
+(re-frame/reg-event-fx
+  :half-trump-question
+  (fn [{:keys [db]} [_ [target-player suit]]]
+    ;TODO Check if user can actually do this
+    {:ask-for-half-trump {:match-id (-> db :match :id)
+                          :player-id (:player-id db)
+                          :suit suit
+                          :target-player target-player}}))
+
 (re-frame/reg-fx
   :show-error
   (fn [{:keys [message]}]
@@ -251,6 +275,11 @@
   :ask-for-trump
   (fn [{:keys [match-id player-id target-player]}]
     (game-client/ask-for-trump match-id player-id target-player)))
+
+(re-frame/reg-fx
+  :ask-for-half-trump
+  (fn [{:keys [match-id player-id target-player suit]}]
+    (game-client/ask-for-half-trump match-id player-id target-player suit)))
 
 (re-frame/reg-fx
   :play-game

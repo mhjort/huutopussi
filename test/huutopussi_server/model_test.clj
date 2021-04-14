@@ -65,7 +65,9 @@
                            :player-index 0
                            :hand-cards [e-card f-card]
                            :possible-cards [e-card f-card]
-                           :possible-actions  [{:action-type "ask-for-trump" :target-player "c"}]}
+                           :possible-actions  [{:action-type "ask-for-trump" :target-player "c"}
+                                               {:action-type "ask-for-half-trump" :suit :hearts :target-player "c"}
+                                               {:action-type "ask-for-half-trump" :suit :clubs :target-player "c"}]}
                       "b" {:player-id "b" :player-index 1 :hand-cards [] :possible-cards [b-card] :possible-actions []}
                       "c" {:player-id "c" :player-index 2 :hand-cards [] :possible-cards [c-card] :possible-actions []}
                       "d" {:player-id "d" :player-index 3 :hand-cards [] :possible-cards [d-card] :possible-actions []}}}
