@@ -107,22 +107,21 @@
     (start-match-loop matches flatted-teams id players-with-input-channels starting-players))
   @matches)
 
-(defn run-action [matches id player-id {:keys [action-type card-index suit] :as action}]
+(defn run-action [matches id player-id {:keys [action-type card-index] :as action}]
   (log/info "Going to run action with match" id "player-id" player-id "and action" action)
   (let [{:keys [game-model] :as match} (get @matches id)]
     (if (= (:next-player-id game-model) player-id)
       (let [player-details (get-in game-model [:players player-id])
-            input-channel (get-in match [:players player-id :input-channel])]
-        (case action-type
-          "play-card" (go (>! input-channel {:action-type :play-card
-                                             :card (get-in player-details [:hand-cards card-index])}))
-          "declare-trump" (go (>! input-channel {:action-type :declare-trump
-                                                 :player-id player-id
-                                                 :suit (keyword suit)}))
-          "ask-for-half-trump" (go (>! input-channel {:action-type :ask-for-half-trump
-                                                      :suit (keyword suit)
-                                                      :player-id player-id}))
-          "ask-for-trump" (go (>! input-channel {:action-type :ask-for-trump
-                                                 :player-id player-id})))
+            input-channel (get-in match [:players player-id :input-channel])
+            ;TODO Play cards shourld not be special case
+            executable-action (if (= "play-card" action-type)
+                                {:action-type :play-card
+                                 :card (get-in player-details [:hand-cards card-index])}
+                                (first (get (group-by :id (:possible-actions player-details)) (:id action))))]
+        (if executable-action
+          (go (>! input-channel executable-action))
+          (do
+            (log/warn "Could not find action" (:id action) "from match" id "for player" player-id)
+            {:ok false}))
         {:ok true})
       {:ok false})))

@@ -104,28 +104,22 @@
       (recur))))
 
 (defn- show-possible-trumps [{:keys [possible-actions]}]
-  (let [declare-trump (fn [suit]
-                        (re-frame/dispatch [:trump-suit suit])
-                        false)
-        ask-for-half-trump (fn [target-player suit]
-                             (re-frame/dispatch [:half-trump-question [target-player suit]])
-                             false)
-        ask-for-trump (fn [target-player]
-                        (re-frame/dispatch [:trump-question target-player])
+  (let [run-action (fn [id]
+                        (re-frame/dispatch [:player-action id])
                         false)]
-    (for [{:keys [action-type suit target-player]} possible-actions]
+    (for [{:keys [action-type suit target-player id]} possible-actions]
       (case action-type
         "declare-trump" ^{:key suit}[:span " "
                                      [:a {:href "#"
-                                          :on-click #(declare-trump suit)}
+                                          :on-click #(run-action id)}
                                       (str "Tee " (get suits-fi suit) "valtti!")]]
         "ask-for-half-trump" ^{:key suit} [:span " "
                                            [:a {:href "#"
-                                                :on-click #(ask-for-half-trump target-player suit)}
+                                                :on-click #(run-action id)}
                                             (str "Kysy onko pelaajalla " target-player " " (get suits-fi suit) "puolikasta!")]]
         "ask-for-trump" ^{:key target-player} [:span " "
                                                [:a {:href "#"
-                                                    :on-click #(ask-for-trump target-player)}
+                                                    :on-click #(run-action id)}
                                                 (str "Kysy onko pelaajalla " target-player " valtti!")]]))))
 
 (defn- show-next-player [player-name game]
@@ -261,27 +255,10 @@
         {:show-error {:message (str "Kortti " card-to-play " ei ole yksi pelattavista korteista " :possible-cards)}}))))
 
 (re-frame/reg-event-fx
-  :trump-suit
-  (fn [{:keys [db]} [_ suit]]
+  :player-action
+  (fn [{:keys [db]} [_ id]]
     ;TODO Check if user can actually do this
-    {:declare-trump {:match-id (-> db :match :id) :player-id (:player-id db) :suit suit}}))
-
-(re-frame/reg-event-fx
-  :trump-question
-  (fn [{:keys [db]} [_ target-player]]
-    ;TODO Check if user can actually do this
-    {:ask-for-trump {:match-id (-> db :match :id)
-                     :player-id (:player-id db)
-                     :target-player target-player}}))
-
-(re-frame/reg-event-fx
-  :half-trump-question
-  (fn [{:keys [db]} [_ [target-player suit]]]
-    ;TODO Check if user can actually do this
-    {:ask-for-half-trump {:match-id (-> db :match :id)
-                          :player-id (:player-id db)
-                          :suit suit
-                          :target-player target-player}}))
+    {:run-player-action {:match-id (-> db :match :id) :player-id (:player-id db) :action-id id}}))
 
 (re-frame/reg-fx
   :show-error
@@ -294,19 +271,9 @@
     (game-client/play-card match-id player-id card-index)))
 
 (re-frame/reg-fx
-  :declare-trump
-  (fn [{:keys [match-id player-id suit]}]
-    (game-client/declare-trump match-id player-id suit)))
-
-(re-frame/reg-fx
-  :ask-for-trump
-  (fn [{:keys [match-id player-id target-player]}]
-    (game-client/ask-for-trump match-id player-id target-player)))
-
-(re-frame/reg-fx
-  :ask-for-half-trump
-  (fn [{:keys [match-id player-id target-player suit]}]
-    (game-client/ask-for-half-trump match-id player-id target-player suit)))
+  :run-player-action
+  (fn [{:keys [match-id player-id action-id]}]
+    (game-client/run-player-action match-id player-id action-id)))
 
 (re-frame/reg-fx
   :play-game
