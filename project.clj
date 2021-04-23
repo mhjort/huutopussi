@@ -13,7 +13,10 @@
   :plugins [[lein-ring "0.12.5"]]
   :ring {:handler huutopussi-server.handler/prod-app}
   :uberjar-name "huutopussi-standalone.jar"
-  :profiles
-  {:dev {:dependencies [[javax.servlet/servlet-api "2.5"]
-                        [ring/ring-jetty-adapter "1.8.2"]
-                        [ring/ring-mock "0.3.2"]]}})
+  :profiles {:reveal {:dependencies [[nrepl "0.8.3"]
+                                     [nrepl-complete "0.1.0"]
+                                     [vlaaad/reveal "1.2.186"]]
+                      :repl-options {:nrepl-middleware [vlaaad.reveal.nrepl/middleware]}}
+             :dev {:dependencies [[javax.servlet/servlet-api "2.5"]
+                                  [ring/ring-jetty-adapter "1.8.2"]
+                                  [ring/ring-mock "0.3.2"]]}})
