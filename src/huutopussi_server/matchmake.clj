@@ -1,6 +1,6 @@
 (ns huutopussi-server.matchmake
   (:require [clojure.data :as data]
-            [huutopussi-server.game :as game]
+            [huutopussi-server.match :as match]
             [clojure.tools.logging :as log]))
 
 (defn rand-str [len]
@@ -27,10 +27,6 @@
                          teams)
        :players (mapv #(select-keys % [:name]) (vals players))})
     (throw (Exception. (str "No such match: " id)))))
-
-(get-match (atom {"1" {:teams {"ab" {:players ["a" "b"]}
-                               "cd" {:players ["c" "d"]}}
-                       :players {"a" {:name "jaska"}}}}) "1")
 
 (defn- form-teams [players]
   {"Team1" {:players (map :id (take 2 (vals players)))
@@ -64,7 +60,7 @@
         updated-matches (swap! matches #(update % id mark-player-as-ready))]
     (when (every? :ready-to-start?
                   (vals (get-in updated-matches [id :players])))
-      (game/start matches id)))
+      (match/start matches id)))
   (get-match matches id))
 
 ;(find-match (atom {}) "a")

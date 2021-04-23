@@ -2,7 +2,7 @@
   (:require [clojure.test :refer [deftest is testing use-fixtures]]
             [cheshire.core :as cheshire]
             [ring.mock.request :as mock]
-            [huutopussi-server.game :as game]
+            [huutopussi-server.match :as match]
             [huutopussi-server.handler :refer [create-app]]))
 
 (def matches (atom {}))
@@ -12,7 +12,7 @@
   (try
     (t)
     (finally
-      (game/stop-game-loops matches))))
+      (match/stop-match-loops matches))))
 
 (use-fixtures :each with-matches)
 
@@ -56,7 +56,7 @@
              "player-4" {:name "player-4-name"
                          :id "player-4"}}})
 
-(deftest match
+(deftest match-status
   (testing "status with waiting"
     (reset! matches {"match-1" match-with-one-player})
     (let [{:keys [status body]} (request :get "/api/match/match-1")]
@@ -96,28 +96,38 @@
                         {:name "player-4-name"}]}
              body)))))
 
-(deftest game
+(defn- run-action [match-id player-id action]
+  (let [{:keys [status]} (request :put (str "/api/match/" match-id "/run/" player-id "/action") action)]
+    (is (= 200 status))
+    (Thread/sleep 200)))
+
+(defn- get-status [match-id player-id]
+  (let [{:keys [status body]} (request :get (str "/api/match/" match-id "/status/" player-id))]
+    (is (= 200 status))
+    body))
+
+(deftest playing-a-match
   (reset! matches {"match-1" match-with-four-players})
-  (testing "initial-game"
-    (game/start matches "match-1")
+  (testing "status when match has started"
+    (match/start matches "match-1")
     (Thread/sleep 200)
     (is (= :started (:status (get @matches "match-1"))))
     (let [{:keys [status body]} (request :get "/api/match/match-1/status/player-1")]
       (is (= 200 status))
       (is (= {:current-round 0 :next-player-name "player-1-name" :events []}
              (select-keys body [:next-player-name :current-round :events])))))
-  (testing "after-one-card-played"
+  (testing "status after one card played"
     (let [{:keys [body]} (request :get "/api/match/match-1/status/player-1")
           player-a-card (-> body :hand-cards first)
-          {:keys [status]} (request :put "/api/match/match-1/run/player-1/action" {:action-type "play-card"
-                                                                                   :card-index 0})
-          _ (is (= 200 status))
-          _ (Thread/sleep 200)
-          {:keys [status body]} (request :get "/api/match/match-1/status/player-1")
-          _ (is (= 200 status))
+          _ (run-action "match-1" "player-1" {:action-type "play-card" :card-index 0})
+          status (get-status "match-1" "player-1")
           _ (is (= {:current-round 0
                     :next-player-name "player-2-name"
                     :events [{:event-type "card-played" :player "player-1-name" :value {:card player-a-card}}]}
-                   (select-keys body [:next-player-name :current-round :events])))
+                   (select-keys status [:next-player-name :current-round :events])))
           {:keys [body]} (request :get "/api/match/match-1/status/player-1?events-since=1")]
-      (is (= [] (:events body))))))
+      (is (= [] (:events body)))))
+  (testing "server ignores action when it is not player turn anymore"
+    (let [events-before (:events (get-status "match-1" "player-1"))]
+      (run-action "match-1" "player-1" {:action-type "play-card" :card-index 0})
+      (is (= events-before (:events (get-status "match-1" "player-1")))))))

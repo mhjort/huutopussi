@@ -64,6 +64,6 @@
                          :card-index index}))
 
 (defn run-player-action [id player action-id]
-  (println "Running player action: " action-id)
+  (println "Running player action: " action-id "for player" player)
   (run-action id player {:action-type "run-play-action"
                          :id action-id}))
