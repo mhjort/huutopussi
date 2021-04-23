@@ -138,10 +138,11 @@
                  [:p "Tikin kortit:"]
                  [:div {:style {:display "flex"}}
                   (for [{:keys [card player]} (:trick-cards game)]
-                    ^{:key card}[:div {:style {:width "170px"}} [:img {:src (card-url card)
-                                                                       :width "100%"
-                                                                       :height "auto"}]
-                                 [:span [:center player]]])]]))])
+                    ^{:key card}[:div {:style {:width "170px"}}
+                                 [:span [:center player]]
+                                 [:img {:src (card-url card)
+                                        :width "100%"
+                                        :height "auto"}]])]]))])
 
 (defn- show-match-start []
   (let [player-name (atom "")]
