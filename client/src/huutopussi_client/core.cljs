@@ -133,12 +133,12 @@
                  (for [[index card] (doall (map-indexed vector (:cards game)))]
                    ^{:key card}[:img {:on-click #(re-frame/dispatch [:player-card index])
                                       :src (card-url card)
-                                      :width "200px"
+                                      :width "170px"
                                       :height "auto"}])
                  [:p "Tikin kortit:"]
                  [:div {:style {:display "flex"}}
                   (for [{:keys [card player]} (:trick-cards game)]
-                    ^{:key card}[:div {:style {:width "200px"}} [:img {:src (card-url card)
+                    ^{:key card}[:div {:style {:width "170px"}} [:img {:src (card-url card)
                                                                        :width "100%"
                                                                        :height "auto"}]
                                  [:span [:center player]]])]]))])
