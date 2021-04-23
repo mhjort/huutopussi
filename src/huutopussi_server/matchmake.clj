@@ -28,10 +28,6 @@
        :players (mapv #(select-keys % [:name]) (vals players))})
     (throw (Exception. (str "No such match: " id)))))
 
-(get-match (atom {"1" {:teams {"ab" {:players ["a" "b"]}
-                               "cd" {:players ["c" "d"]}}
-                       :players {"a" {:name "jaska"}}}}) "1")
-
 (defn- form-teams [players]
   {"Team1" {:players (map :id (take 2 (vals players)))
             :score 0}
