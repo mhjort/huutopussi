@@ -117,32 +117,36 @@
     (str "Odottaa pelaajaa " (:next-player-name game))))
 
 (defn- show-match-status []
-  [:div
-   (condp = @(re-frame/subscribe [:state-change])
-     :finding-match [:p (str "Etsitään peliä pelaajalle " @(re-frame/subscribe [:player-name]))]
-     :matched [:p (str "Löytyi peli pelaajille: " (map :name (:players @(re-frame/subscribe [:match]))))]
-     :started (let [player-name @(re-frame/subscribe [:player-name])
-                    match @(re-frame/subscribe [:match])
-                    game @(re-frame/subscribe [:game])]
-                [:div
-                 [:p "Peli aloitettu joukkueilla: " (:teams match)]
-                 [:p (:current-round game) ". tikki, pisteet: " (:scores game)
-                     (when (:current-trump-suit game) (list ", " (get suits-fi (:current-trump-suit game)) "valtti"))]
-                 [:p (show-next-player player-name game) (show-possible-trumps game)]
-                 [:p "Käsikorttisi:"]
-                 (for [[index card] (doall (map-indexed vector (:cards game)))]
-                   ^{:key card}[:img {:on-click #(re-frame/dispatch [:player-card index])
-                                      :src (card-url card)
-                                      :width "170px"
-                                      :height "auto"}])
-                 [:p "Tikin kortit:"]
-                 [:div {:style {:display "flex"}}
-                  (for [{:keys [card player]} (:trick-cards game)]
-                    ^{:key card}[:div {:style {:width "170px"}}
-                                 [:span [:center player]]
-                                 [:img {:src (card-url card)
-                                        :width "100%"
-                                        :height "auto"}]])]]))])
+  (condp = @(re-frame/subscribe [:state-change])
+    :finding-match [:p (str "Etsitään peliä pelaajalle " @(re-frame/subscribe [:player-name]))]
+    :matched [:p (str "Löytyi peli pelaajille: " (map :name (:players @(re-frame/subscribe [:match]))))]
+    :started (let [player-name @(re-frame/subscribe [:player-name])
+                   match @(re-frame/subscribe [:match])
+                   game @(re-frame/subscribe [:game])]
+               (list
+                 [:section#match-info
+                  [:ul
+                   [:li "Peli aloitettu joukkueilla: " (:teams match)]
+                   [:li (:current-round game) ". tikki, pisteet: " (:scores game)
+                       (when (:current-trump-suit game) (list ", " (get suits-fi (:current-trump-suit game)) "valtti"))]
+                   [:li (show-next-player player-name game) (show-possible-trumps game)]]]
+                 [:main
+                  [:h2 "Käsikorttisi"]
+                  [:ul#player-hand
+                   (for [[index card] (doall (map-indexed vector (:cards game)))]
+                     ^{:key card} [:li
+                                   [:img {:on-click #(re-frame/dispatch [:player-card index])
+                                          :src (card-url card)
+                                          :width "170px"
+                                          :height "auto"}]])]
+                  [:h2 "Tikin kortit"]
+                  [:ul#trick-cards {:style {:display "flex"}}
+                   (for [{:keys [card player]} (:trick-cards game)]
+                     ^{:key card}[:li {:style {:width "170px"}}
+                                  [:div player]
+                                  [:img {:src (card-url card)
+                                         :width "100%"
+                                         :height "auto"}]])]]))))
 
 (defn- show-match-start []
   (let [player-name (atom "")]
@@ -177,8 +181,8 @@
 (defn events-view []
   (let [events @(re-frame/subscribe [:events])]
     (when events
-      [:div
-       [:p "Pelitapahtumat:"]
+      [:section#events
+       [:h2 "Pelitapahtumat"]
        [:ul
         (for [event (take 3 (reverse events))]
           ^{:key event} [:li (format-event event)])]])))
