@@ -1,2 +1,23 @@
 /* some style */
 
+body {
+    font-family: Helvetica, sans-serif;
+}
+
+#match-info ul, main #player-hand, main #trick-cards {
+    list-style: none;
+    padding-left: 0;
+}
+
+#match-info ul li {
+    padding-bottom: 0.5rem;
+    padding-top: 0.5rem;
+}
+
+main #player-hand li {
+    display: inline;
+}
+
+#trick-cards li div {
+    text-align: center;
+}
