@@ -1,9 +1,12 @@
 (ns ^:figwheel-hooks huutopussi-client.game-client
   (:require-macros [cljs.core.async.macros :refer [go go-loop]])
   (:require [cljs-http.client :as http]
+            [cemerick.url :as url]
             [cljs.core.async :refer [<! timeout]]))
 
-(defonce dev-mode? (= "http://localhost:9500/" (str (-> js/window .-location))))
+(defonce host (:host (url/url (-> js/window .-location .-href))))
+
+(defonce dev-mode? (= "localhost" host))
 
 (println "Dev mode?" dev-mode?)
 

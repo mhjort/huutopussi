@@ -3,8 +3,15 @@
   (:require [huutopussi-client.game-client :as game-client]
             [cljs.core.async :refer [<! timeout]]
             [goog.dom :as gdom]
+            [cemerick.url :as url]
             [re-frame.core :as re-frame]
             [reagent.dom :as rdom]))
+
+(defonce query (:query (url/url (-> js/window .-location .-href))))
+
+(defonce auto-play? (= "yes" (get query "auto-play")))
+
+(println "Autoplay?" auto-play?)
 
 (defn multiply [a b] (* a b))
 
@@ -59,10 +66,14 @@
           matched-match (if (= "matched" status)
                           match
                           (<! (game-client/wait-until-state id "matched")))]
-      (println "Matched")
+      (println "Matched match" id "with player id" player-id)
       (re-frame/dispatch [:matched [matched-match player-id]]))))
 
-(defn play-game [{:keys [match-id player-id]}]
+(defn index-of [x coll]
+  (let [idx? (fn [i a] (when (= x a) i))]
+  (first (keep-indexed idx? coll))))
+
+(defn play-game [{:keys [match-id player-name player-id]}]
   (go
     (loop []
       (let [{:keys [hand-cards
@@ -82,7 +93,13 @@
                                           :current-round (inc current-round) ;Server round is zero based
                                           :current-trump-suit current-trump-suit
                                           :next-player-name next-player-name
-                                          :trick-cards current-trick-cards}]))
+                                          :trick-cards current-trick-cards}])
+        (when (and auto-play?
+                   (= player-name next-player-name)
+                   (seq possible-cards))
+          (let [first-possible-card (first possible-cards)]
+            (println "Auto playing first card" first-possible-card)
+            (re-frame/dispatch [:player-card (index-of first-possible-card hand-cards)]))))
       (<! (timeout 500))
       (recur))))
 
@@ -149,6 +166,8 @@
                                          :height "auto"}]])]]))))
 
 (defn- show-match-start []
+  (when auto-play?
+    (re-frame/dispatch [:start-matchmake (str "bot-" (rand-int 10000))]))
   (let [player-name (atom "")]
     [:div
      [:label "Syötä nimesi "]
@@ -220,7 +239,9 @@
 (re-frame/reg-event-fx
   :game-started
   (fn [{:keys [db]} [_ _]]
-    {:play-game {:player-name (:player-name db) :player-id (:player-id db) :match-id (-> db :match :id)}
+    {:play-game {:player-name (:player-name db)
+                 :player-id (:player-id db)
+                :match-id (-> db :match :id)}
      :db (assoc db :state :started)}))
 
 (re-frame/reg-event-fx
