@@ -116,6 +116,11 @@
     [:b "Sinun vuorosi lyödä kortti"]
     (str "Odottaa pelaajaa " (:next-player-name game))))
 
+(defn- format-card [{:keys [text suit]} grammatical-case]
+  (case grammatical-case
+    :genitive (str (get suits-fi suit) (get card-text-genitive-fi text))
+    :adessive (str (get suits-fi suit) (get card-text-adessive-fi text))))
+
 (defn- show-match-status []
   (condp = @(re-frame/subscribe [:state-change])
     :finding-match [:p (str "Etsitään peliä pelaajalle " @(re-frame/subscribe [:player-name]))]
@@ -124,29 +129,28 @@
                    match @(re-frame/subscribe [:match])
                    game @(re-frame/subscribe [:game])]
                (list
-                 [:section#match-info
-                  [:ul
-                   [:li "Peli aloitettu joukkueilla: " (:teams match)]
-                   [:li (:current-round game) ". tikki, pisteet: " (:scores game)
-                       (when (:current-trump-suit game) (list ", " (get suits-fi (:current-trump-suit game)) "valtti"))]
-                   [:li (show-next-player player-name game) (show-possible-trumps game)]]]
-                 [:main
-                  [:h2 "Käsikorttisi"]
-                  [:ul#player-hand
-                   (for [[index card] (doall (map-indexed vector (:cards game)))]
-                     ^{:key card} [:li
-                                   [:img {:on-click #(re-frame/dispatch [:player-card index])
-                                          :src (card-url card)
-                                          :width "170px"
-                                          :height "auto"}]])]
-                  [:h2 "Tikin kortit"]
-                  [:ul#trick-cards {:style {:display "flex"}}
-                   (for [{:keys [card player]} (:trick-cards game)]
-                     ^{:key card}[:li {:style {:width "170px"}}
-                                  [:div player]
-                                  [:img {:src (card-url card)
-                                         :width "100%"
-                                         :height "auto"}]])]]))))
+                ^{:key "match-info"} [:section#match-info
+                 [:p "Peli aloitettu joukkueilla: " (:teams match)]
+                 [:p (:current-round game) ". tikki, pisteet: " (:scores game)
+                  (when (:current-trump-suit game) (list ", " (get suits-fi (:current-trump-suit game)) "valtti"))]
+                 [:p (show-next-player player-name game) (show-possible-trumps game)]]
+                ^{:key "main"} [:main
+                 [:h2 "Käsikorttisi"]
+                 [:ul#player-hand
+                  (for [[index card] (doall (map-indexed vector (:cards game)))]
+                    ^{:key (str "hand-" (format-card card :genitive))} [:li
+                                                                        [:img {:on-click #(re-frame/dispatch [:player-card index])
+                                                                               :src (card-url card)
+                                                                               :width "170px"
+                                                                               :height "auto"}]])]
+                 [:h2 "Tikin kortit"]
+                 [:ul#trick-cards {:style {:display "flex"}}
+                  (for [{:keys [card player]} (:trick-cards game)]
+                    ^{:key (str "trick-" (format-card card :genitive))}[:li {:style {:width "170px"}}
+                                                                        [:div player]
+                                                                        [:img {:src (card-url card)
+                                                                               :width "100%"
+                                                                               :height "auto"}]])]]))))
 
 (defn- show-match-start []
   (let [player-name (atom "")]
@@ -157,17 +161,14 @@
      " "
      [:button {:type "submit" :value "Käynnistä peli!" :on-click #(re-frame/dispatch [:start-matchmake @player-name])} "Käynnistä peli!"]]))
 
-(defn format-event [{:keys [event-type player value]}]
+(defn- format-event [{:keys [event-type player value]}]
   (let [{:keys [card last-round? answer]} value
-        {:keys [text suit]} card
-        card-str-genitive (str (get suits-fi suit) (get card-text-genitive-fi text))
-        card-str-adessive (str (get suits-fi suit) (get card-text-adessive-fi text))
         trick-str (if last-round?
-                   "viimeisen tikin"
-                   "tikin")]
+                    "viimeisen tikin"
+                    "tikin")]
     (case event-type
-      "card-played" (str player " löi " card-str-genitive)
-      "round-won" (str player " vei " trick-str " " card-str-adessive)
+      "card-played" (str player " löi " (format-card card :genitive))
+      "round-won" (str player " vei " trick-str " " (format-card card :adessive))
       "trump-declared" (str player " teki " (get suits-fi (:suit value)) "valtin")
       "asked-for-half-trump" (str player " kysyi onko tiimikaverilla " (get suits-fi (:suit value)) "puolikasta")
       "answered-to-half-trump" (str player " vastasi, että " (if answer
