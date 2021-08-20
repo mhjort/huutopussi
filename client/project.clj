@@ -14,6 +14,7 @@
                  [re-frame "1.1.1"]]
 
   :source-paths ["src"]
+  :resource-paths ["resources" "target"]
 
   :aliases {"fig"       ["trampoline" "run" "-m" "figwheel.main"]
             "fig:build" ["trampoline" "run" "-m" "figwheel.main" "-b" "dev" "-r"]

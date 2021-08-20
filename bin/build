@@ -4,7 +4,7 @@ set -u
 
 cd client || exit
 lein fig:min
-cp resources/public/cljs-out/dev-main.js ../resources/public/main.js
+cp target/public/cljs-out/dev-main.js ../resources/public/main.js
 
 cp -R resources/public/img ../resources/public
 cp -R resources/public/css ../resources/public
