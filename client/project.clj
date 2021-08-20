@@ -9,6 +9,7 @@
   :dependencies [[org.clojure/clojure "1.10.1"]
                  [org.clojure/clojurescript "1.10.773"]
                  [cljs-http "0.1.46"]
+                 [com.cemerick/url "0.1.1"]
                  [org.clojure/core.async "1.3.610"]
                  [reagent "1.0.0-alpha2"]
                  [re-frame "1.1.1"]]
