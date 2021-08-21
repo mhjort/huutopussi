@@ -123,15 +123,21 @@
       (map (fn [suit] (declare-trump-action suit))
            possible-player-trumps)
       (let [previous-event (last events)
-            trump-asked? (fn [events] (some #(= (:event-type %) :answered-to-trump) events))
+            trump-asked? (some (fn [{:keys [event-type player]}]
+                                 (and (= player player-id)
+                                      (or (= event-type :answered-to-trump)
+                                          (= event-type :asked-for-trump))))
+                               events)
             ask-for-trump-actions (when (< 1 (count player-hand-cards)) ;At least two cards left
                                     [(ask-for-trump-action team-mate-player-id)])
             ;TODO Check that player can ask same question only once
             ask-for-half-trump-actions (map (fn [suit]
                                               (ask-for-half-trump-action suit team-mate-player-id))
-                                            possible-player-half-trumps)]
+                                            possible-player-half-trumps)
+            _ (println "**" ask-for-half-trump-actions)
+            _ (println "* *" trump-asked?)]
         (if (= :round-won (:event-type previous-event))
-          (concat ask-for-trump-actions (when (trump-asked? events) ask-for-half-trump-actions))
+          (concat ask-for-trump-actions (when trump-asked? ask-for-half-trump-actions))
           [])))))
 
 (defn- play-card [{:keys [next-player-id players current-trump-suit] :as game-model} {:keys [card]}]
@@ -242,24 +248,25 @@
     game-model))
 
 (defn play-test-game []
-  ;(let [shuffled-cards (deck/shuffle-for-four-players (deck/card-deck))
-  (let [shuffled-cards (deck/same-suit-for-four-players (deck/card-deck))
+  (let [shuffled-cards (deck/shuffle-for-four-players (deck/card-deck))
+ ; (let [shuffled-cards (deck/same-suit-for-four-players (deck/card-deck))
         game-model (init {"Team1" ["a" "b"]
                           "Team2" ["c" "d"]} "a" (map #(take 9 %) shuffled-cards))
         _ (prn "Team mate" (team-mate-for-player "a" (:teams game-model)))
         safe-rand-nth (fn [coll] (when (not (empty? coll)) (rand-nth coll)))
         do-first-action (fn [{:keys [next-player-id players] :as game-model}]
-                          (if-let [action (-> players (get-in [next-player-id :possible-actions]) safe-rand-nth)]
-                            (if (= "declare-trump" (:action-type action))
+                          (if-let [{:keys [action-type suit] :as action} (-> players (get-in [next-player-id :possible-actions]) safe-rand-nth)]
+                            (if (= "declare-trump" action-type)
                               (do
                                 (prn "Player" next-player-id "declares" action)
                                 (tick game-model {:action-type :declare-trump
                                                   :player-id next-player-id
-                                                  :suit (:suit action)}))
+                                                  :suit suit}))
                               (do
                                 (prn "Player" next-player-id "Ask for trump from player" action)
-                                (tick game-model {:action-type :ask-for-trump
-                                                  :player-id next-player-id})))
+                                (tick game-model {:action-type (keyword action-type)
+                                                  :player-id next-player-id
+                                                  :suit suit})))
                             game-model))
         play-first-possible-card (fn [{:keys [players next-player-id] :as game-model}]
                                    (let [card-to-play (first (get-in players [next-player-id :possible-cards]))]

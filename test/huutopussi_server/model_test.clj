@@ -10,6 +10,9 @@
 (def d-card (pick-card deck "A" :diamonds))
 (def e-card (pick-card deck "K" :clubs))
 (def f-card (pick-card deck "K" :hearts))
+(def q-clubs (pick-card deck "Q" :clubs))
+(def q-hearts (pick-card deck "Q" :hearts))
+(def k-spades (pick-card deck "K" :spades))
 (def teams {"Team1" ["a" "c"] "Team2" ["b" "d"]})
 
 (deftest after-init
@@ -47,17 +50,17 @@
            game-model))))
 
 (deftest one-round-played
-  (let [game-model (-> (model/init teams
-                                   "a"
-                                   [[a-card e-card f-card][b-card][c-card][d-card]])
-                       (model/tick {:action-type :play-card :card a-card})
-                       (model/tick {:action-type :play-card :card b-card})
-                       (model/tick {:action-type :play-card :card c-card})
-                       (model/tick {:action-type :play-card :card d-card}))]
+  (let [game-model-after-one-round (-> (model/init teams
+                                                   "a"
+                                                   [[a-card e-card f-card][b-card q-clubs][c-card q-hearts][d-card k-spades]])
+                                       (model/tick {:action-type :play-card :card a-card})
+                                       (model/tick {:action-type :play-card :card b-card})
+                                       (model/tick {:action-type :play-card :card c-card})
+                                       (model/tick {:action-type :play-card :card d-card}))]
     (is (= {:current-round 1
             :next-player-id "a"
             :current-trick-cards []
-            :game-ended? true
+            :game-ended? false
             :teams teams
             :events [{:event-type :card-played :player "a" :value {:card a-card}}
                      {:event-type :card-played :player "b" :value {:card b-card}}
@@ -68,16 +71,10 @@
                            :player-index 0
                            :hand-cards [e-card f-card]
                            :possible-cards [e-card f-card]
-                           :possible-actions  [{:id "ask-for-trump" :action-type :ask-for-trump :target-player "c"}
-                                               {:id "ask-for-half-trump:hearts"
-                                                :action-type :ask-for-half-trump
-                                                :suit :hearts
-                                                :target-player "c"}
-                                               {:id "ask-for-half-trump:clubs"
-                                                :action-type :ask-for-half-trump
-                                                :suit :clubs
-                                                :target-player "c"}]}
-                      "b" {:player-id "b" :player-index 1 :hand-cards [] :possible-cards [b-card] :possible-actions []}
-                      "c" {:player-id "c" :player-index 2 :hand-cards [] :possible-cards [c-card] :possible-actions []}
-                      "d" {:player-id "d" :player-index 3 :hand-cards [] :possible-cards [d-card] :possible-actions []}}}
-           game-model))))
+                           :possible-actions  [{:id "ask-for-trump" :action-type :ask-for-trump :target-player "c"}]}
+                      "b" {:player-id "b" :player-index 1 :hand-cards [q-clubs] :possible-cards [b-card] :possible-actions []}
+                      "c" {:player-id "c" :player-index 2 :hand-cards [q-hearts] :possible-cards [c-card] :possible-actions []}
+                      "d" {:player-id "d" :player-index 3 :hand-cards [k-spades] :possible-cards [d-card] :possible-actions []}}}
+           game-model-after-one-round))))
+;    (let [game-model-after-ask-for-trump (model/tick game-model {:action-type :ask-for-trump
+;                                                                 :player-id "c"))))
