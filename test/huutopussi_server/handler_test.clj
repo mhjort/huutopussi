@@ -3,6 +3,7 @@
             [cheshire.core :as cheshire]
             [ring.mock.request :as mock]
             [huutopussi-server.match :as match]
+            [huutopussi-server.model :as model]
             [huutopussi-server.handler :refer [create-app]]))
 
 (def matches (atom {}))
@@ -45,8 +46,8 @@
 (def match-with-four-players
   {:declarer "player-1"
    :status :matched
-   :teams {:Team1 {:players ["player-1" "player-3"]}
-           :Team2 {:players ["player-2" "player-4"]}}
+   :teams {:Team1 {:total-score 0 :players ["player-1" "player-3"]}
+           :Team2 {:total-score 0 :players ["player-2" "player-4"]}}
    :players {"player-1" {:name "player-1-name"
                          :id "player-1"}
              "player-2" {:name "player-2-name"
@@ -106,24 +107,31 @@
     (is (= 200 status))
     body))
 
-(deftest playing-a-match
+(deftest playing-real-match
   (reset! matches {"match-1" match-with-four-players})
   (testing "status when match has started"
-    (match/start matches "match-1")
-    (Thread/sleep 200)
+    (match/start matches "match-1" {:model-init model/init
+                                    :model-tick model/tick} {})
+    (Thread/sleep 100)
     (is (= :started (:status (get @matches "match-1"))))
-    (let [{:keys [status body]} (request :get "/api/match/match-1/status/player-1")]
-      (is (= 200 status))
-      (is (= {:current-round 0 :next-player-name "player-1-name" :events []}
-             (select-keys body [:next-player-name :current-round :events])))))
+    (let [status (get-status "match-1" "player-1")]
+      (is (= {:current-round 0
+              :next-player-name "player-1-name"
+              :events []
+              :scores {:Team1 0 :Team2 0}
+              :teams {:Team1 {:total-score 0 :players ["player-1-name" "player-3-name"]}
+                      :Team2 {:total-score 0 :players ["player-2-name" "player-4-name"]}}}
+             (select-keys status [:next-player-name :current-round :events :scores :teams])))))
   (testing "status after one card played"
-    (let [{:keys [body]} (request :get "/api/match/match-1/status/player-1")
-          player-a-card (-> body :hand-cards first)
+    (let [player-a-card (-> (get-status "match-1" "player-1") :hand-cards first)
+          _ (is (not (nil? player-a-card)))
           _ (run-action "match-1" "player-1" {:action-type "play-card" :card-index 0})
           status (get-status "match-1" "player-1")
           _ (is (= {:current-round 0
                     :next-player-name "player-2-name"
-                    :events [{:event-type "card-played" :player "player-1-name" :value {:card player-a-card}}]}
+                    :events [{:event-type "card-played"
+                              :player "player-1-name"
+                              :value {:card player-a-card}}]}
                    (select-keys status [:next-player-name :current-round :events])))
           {:keys [body]} (request :get "/api/match/match-1/status/player-1?events-since=1")]
       (is (= [] (:events body)))))
@@ -131,3 +139,33 @@
     (let [events-before (:events (get-status "match-1" "player-1"))]
       (run-action "match-1" "player-1" {:action-type "play-card" :card-index 0})
       (is (= events-before (:events (get-status "match-1" "player-1")))))))
+
+(deftest playing-stubbed-match
+  (reset! matches {"match-1" match-with-four-players})
+  (let [started-game-rounds (atom 0)]
+    (testing "when game ends total score is updated and new game is started"
+      (match/start matches
+                   "match-1"
+                   {:model-init (fn [_ _ _]
+                                  (swap! started-game-rounds inc)
+                                  {:next-player-id "player-1"
+                                   :players {"player-1" {:possible-actions [{:id "continue-game"}
+                                                                            {:id "end-game"}]}}
+                                   :game-ended? false})
+                    :model-tick (fn [game-model {:keys [id]}]
+                                  (assoc game-model :scores {:Team1 100 :Team2 40}
+                                                    :game-ended? (= "end-game" id)))}
+                   {:time-before-starting-next-round 10})
+      (Thread/sleep 100)
+      (is (= :started (:status (get @matches "match-1"))))
+      (is (= {:Team1 {:total-score 0 :players ["player-1-name" "player-3-name"]}
+              :Team2 {:total-score 0 :players ["player-2-name" "player-4-name"]}}
+             (:teams (get-status "match-1" "player-1"))))
+      (is (= 1 @started-game-rounds))
+      (run-action "match-1" "player-1" {:id "continue-game" :action-type :dummy})
+      (is (= 1 @started-game-rounds))
+      (run-action "match-1" "player-1" {:id "end-game" :action-type :dummy})
+      (is (= 2 @started-game-rounds))
+      (is (= {:Team1 {:total-score 100 :players ["player-1-name" "player-3-name"]}
+              :Team2 {:total-score 40 :players ["player-2-name" "player-4-name"]}}
+             (:teams (get-status "match-1" "player-1")))))))

@@ -4,6 +4,7 @@
             [cljs.core.async :refer [<! timeout]]
             [goog.dom :as gdom]
             [cemerick.url :as url]
+            [clojure.string :as string]
             [re-frame.core :as re-frame]
             [reagent.dom :as rdom]))
 
@@ -84,12 +85,14 @@
                     current-trump-suit
                     events
                     scores
-                    next-player-name]} (<! (game-client/get-game-status match-id player-id))]
+                    next-player-name
+                    teams]} (<! (game-client/get-game-status match-id player-id))]
         (re-frame/dispatch [:game-status {:cards hand-cards
                                           :possible-cards possible-cards
                                           :possible-actions possible-actions
                                           :events events
                                           :scores scores
+                                          :teams teams
                                           :current-round (inc current-round) ;Server round is zero based
                                           :current-trump-suit current-trump-suit
                                           :next-player-name next-player-name
@@ -132,21 +135,27 @@
     :genitive (str (get suits-fi suit) (get card-text-genitive-fi text))
     :adessive (str (get suits-fi suit) (get card-text-adessive-fi text))))
 
+(defn- show-teams [teams]
+  (let [formatted-teams (map (fn [[team-name {:keys [total-score players]}]]
+                               (str (name team-name) ": (" (string/join "," players) ") pisteet: " total-score))
+                             teams)]
+    (string/join " ja " formatted-teams)))
+
 (defn- show-match-status []
   (condp = @(re-frame/subscribe [:state-change])
     :finding-match [:p (str "Etsitään peliä pelaajalle " @(re-frame/subscribe [:player-name]))]
     :matched [:p (str "Löytyi peli pelaajille: " (map :name (:players @(re-frame/subscribe [:match]))))]
     :started (let [player-name @(re-frame/subscribe [:player-name])
-                   match @(re-frame/subscribe [:match])
                    game @(re-frame/subscribe [:game])]
                (list
                 ^{:key "match-info"} [:section#match-info
-                 [:p "Peli aloitettu joukkueilla: " (:teams match)]
-                 [:p (:current-round game) ". tikki, pisteet: " (:scores game)
+                 [:p (show-teams (:teams game))]
+                 [:h3 "Jako"]
+                 [:p (:current-round game) ". tikki, jaon pisteet: " (:scores game)
                   (when (:current-trump-suit game) (list ", " (get suits-fi (:current-trump-suit game)) "valtti"))]
                  [:p (show-next-player player-name game) (show-possible-trumps game)]]
                 ^{:key "main"} [:main
-                 [:h2 "Käsikorttisi"]
+                 [:h3 "Käsikorttisi"]
                  [:ul#player-hand
                   (for [[index card] (doall (map-indexed vector (:cards game)))]
                     ^{:key (str "hand-" (format-card card :genitive))} [:li
@@ -154,7 +163,7 @@
                                                                                :src (card-url card)
                                                                                :width "170px"
                                                                                :height "auto"}]])]
-                 [:h2 "Tikin kortit"]
+                 [:h3 "Tikin kortit"]
                  [:ul#trick-cards {:style {:display "flex"}}
                   (for [{:keys [card player]} (:trick-cards game)]
                     ^{:key (str "trick-" (format-card card :genitive))}[:li {:style {:width "170px"}}
@@ -196,7 +205,7 @@
   (let [events @(re-frame/subscribe [:events])]
     (when events
       [:section#events
-       [:h2 "Pelitapahtumat"]
+       [:h3 "Pelitapahtumat"]
        [:ul
         (for [event (take 3 (reverse events))]
           ^{:key event} [:li (format-event event)])]])))
