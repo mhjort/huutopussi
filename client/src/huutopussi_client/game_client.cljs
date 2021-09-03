@@ -63,15 +63,7 @@
   (run-action id player {:action-type "play-card"
                          :card-index index}))
 
-(defn declare-trump [id player suit]
-  (println "Declaring trump: " suit)
-  (run-action id player {:action-type "declare-trump"
-                         :suit suit}))
-
-(defn ask-for-trump [id player target-player]
-  (println "Asking for trump from" target-player)
-  (run-action id player {:action-type "ask-for-trump"}))
-
-(defn ask-for-half-trump [id player target-player suit]
-  (println "Asking for half trump" suit "from" target-player)
-  (run-action id player {:action-type "ask-for-half-trump" :suit suit}))
+(defn run-player-action [id player action-id]
+  (println "Running player action: " action-id "for player" player)
+  (run-action id player {:action-type "run-play-action"
+                         :id action-id}))

@@ -98,20 +98,36 @@
        (remove #{player-id})
        (first)))
 
+(defn- declare-trump-action [suit]
+  {:id (str "declare-trump:" (name suit))
+   :action-type :declare-trump
+   :suit suit})
+
+(defn- ask-for-trump-action [target-player]
+  {:id "ask-for-trump"
+   :action-type :ask-for-trump
+   :target-player target-player})
+
+(defn- ask-for-half-trump-action [suit target-player]
+  {:id (str "ask-for-half-trump:" (name suit))
+   :action-type :ask-for-half-trump
+   :suit suit
+   :target-player target-player})
+
 (defn- possible-actions-for-player [player-id {:keys [teams events] :as game-model}]
   (let [player-hand-cards (get-in game-model [:players player-id :hand-cards])
         team-mate-player-id (team-mate-for-player player-id teams)
         possible-player-trumps (remove (set (already-declared-trump-suits events)) (possible-trumps player-hand-cards))
         possible-player-half-trumps (remove (set (already-declared-trump-suits events)) (possible-half-trumps player-hand-cards))]
     (if (seq possible-player-trumps)
-      (map (fn [suit] {:action-type "declare-trump" :suit suit})
+      (map (fn [suit] (declare-trump-action suit))
            possible-player-trumps)
       (let [previous-event (last events)
             ask-for-trump-actions (when (< 1 (count player-hand-cards)) ;At least two cards left
-                                    [{:action-type "ask-for-trump" :target-player team-mate-player-id}])
+                                    [(ask-for-trump-action team-mate-player-id)])
             ;TODO Check that player can ask same question only once
             ask-for-half-trump-actions (map (fn [suit]
-                                              {:action-type "ask-for-half-trump" :suit suit :target-player team-mate-player-id})
+                                              (ask-for-half-trump-action suit team-mate-player-id))
                                             possible-player-half-trumps)]
         (if (= :round-won (:event-type previous-event))
           (concat ask-for-trump-actions ask-for-half-trump-actions)
@@ -203,12 +219,12 @@
     :ask-for-half-trump (ask-for-half-trump game-model action)
     :ask-for-trump (ask-for-trump game-model action)))
 
-(defn init [teams shuffled-cards]
+(defn init [teams starting-player shuffled-cards]
   ;TODO Works only with exactly 2 teams with both having 2 players
   (let [[team1-first-player team1-second-player team2-first-player team2-second-player] (mapcat val teams)
         player-ids [team1-first-player team2-first-player team1-second-player team2-second-player]
         game-model {:current-round 0
-                    :next-player-id (first player-ids)
+                    :next-player-id starting-player
                     :current-trick-cards []
                     :events []
                     :game-ended? false
@@ -228,7 +244,7 @@
   ;(let [shuffled-cards (deck/shuffle-for-four-players (deck/card-deck))
   (let [shuffled-cards (deck/same-suit-for-four-players (deck/card-deck))
         game-model (init {"Team1" ["a" "b"]
-                          "Team2" ["c" "d"]} (map #(take 9 %) shuffled-cards))
+                          "Team2" ["c" "d"]} "a" (map #(take 9 %) shuffled-cards))
         _ (prn "Team mate" (team-mate-for-player "a" (:teams game-model)))
         do-first-action (fn [{:keys [next-player-id players] :as game-model}]
                           (if-let [action (-> players (get-in [next-player-id :possible-actions]) first)]

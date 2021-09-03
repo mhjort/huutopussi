@@ -2,7 +2,7 @@
   (:require [compojure.core :refer [defroutes GET POST PUT]]
             [compojure.route :as route]
             [huutopussi-server.matchmake :as matchmake]
-            [huutopussi-server.game :as game]
+            [huutopussi-server.match :as match]
             [ring.adapter.jetty :refer [run-jetty]]
             [ring.util.response :as resp]
             [clojure.tools.logging :as log]
@@ -35,9 +35,9 @@
   (PUT "/api/match/:id/ready-to-start/:player" [id player :as request]
        (resp/response (matchmake/mark-as-ready-to-start (get-matches request) id player)))
   (GET "/api/match/:id/status/:player" [id player :as request]
-       (resp/response (game/get-game-status (get-matches request) id player (-> request :params :events-since))))
+       (resp/response (match/get-match-status (get-matches request) id player (-> request :params :events-since))))
   (PUT "/api/match/:id/run/:player/action" [id player :as request]
-       (resp/response (game/run-action (get-matches request) id player (:body request))))
+       (resp/response (match/run-action (get-matches request) id player (:body request))))
   (route/resources "/")
   (route/not-found "Not Found"))
 
@@ -61,13 +61,13 @@
 (defonce prod-app (create-app production-matches))
 
 (defn reset []
-  (game/stop-game-loops production-matches)
+  (match/stop-match-loops production-matches)
   (reset! production-matches {}))
 
 (defn start []
   (run-jetty prod-app {:join? false :port 3000}))
 
 ;For REPL Driven development
-;(start)
-;(reset)
-;(game/stop-game-loops production-matches)
+(comment
+  (start)
+  (reset))
