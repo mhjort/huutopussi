@@ -16,3 +16,7 @@ main #player-hand li {
 #trick-cards li div {
     text-align: center;
 }
+
+#startup-form {
+    margin-bottom: 1em;
+}
