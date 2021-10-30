@@ -9,7 +9,7 @@
 
 (defonce query (:query (url/url (-> js/window .-location .-href))))
 
-(defonce auto-play? (= "yes" (get query "auto-play")))
+(defonce auto-play? (= "true" (get query "auto-play")))
 
 (println "Autoplay?" auto-play?)
 
@@ -167,12 +167,15 @@
   (when auto-play?
     (re-frame/dispatch [:start-matchmake (str "bot-" (rand-int 10000))]))
   (let [player-name (atom "")]
-    [:div
-     [:label "Syötä nimesi "]
-     [:input {:type "text"
-              :on-change #(reset! player-name (-> % .-target .-value))}]
-     " "
-     [:button {:type "submit" :value "Käynnistä peli!" :on-click #(re-frame/dispatch [:start-matchmake @player-name])} "Käynnistä peli!"]]))
+    (list
+      [:div#startup-form
+       [:label "Syötä nimesi "]
+       [:input {:type "text"
+                :on-change #(reset! player-name (-> % .-target .-value))}]
+       " "
+       [:button {:type "submit" :value "Käynnistä peli!" :on-click #(re-frame/dispatch [:start-matchmake @player-name])} "Käynnistä peli!"]]
+      [:div
+       [:a {:href "?auto-play=true"} "Käynnistä botti"]])))
 
 (defn- format-event [{:keys [event-type player value]}]
   (let [{:keys [card last-round? answer]} value
