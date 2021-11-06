@@ -213,11 +213,12 @@
                                          :player-id next-player-id}))))
 
 (defn tick [game-model {:keys [action-type] :as action}]
-  (case action-type
-    :play-card (play-card game-model action)
-    :declare-trump (declare-trump game-model action)
-    :ask-for-half-trump (ask-for-half-trump game-model action)
-    :ask-for-trump (ask-for-trump game-model action)))
+  (let [updated-model (case action-type
+                        :play-card (play-card game-model action)
+                        :declare-trump (declare-trump game-model action)
+                        :ask-for-half-trump (ask-for-half-trump game-model action)
+                        :ask-for-trump (ask-for-trump game-model action))]
+    (assoc updated-model :scores (calculate-scores updated-model))))
 
 (defn init [teams starting-player shuffled-cards]
   ;TODO Works only with exactly 2 teams with both having 2 players
@@ -238,7 +239,7 @@
                                                            :possible-actions []}]))
                                            (map-indexed vector player-ids)
                                            shuffled-cards))}]
-    game-model))
+    (assoc game-model :scores (calculate-scores game-model))))
 
 (defn play-test-game []
   ;(let [shuffled-cards (deck/shuffle-for-four-players (deck/card-deck))

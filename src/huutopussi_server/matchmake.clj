@@ -29,10 +29,10 @@
     (throw (Exception. (str "No such match: " id)))))
 
 (defn- form-teams [players]
-  {"Team1" {:players (map :id (take 2 (vals players)))
-            :score 0}
-   "Team2" {:players (map :id (drop 2 (vals players)))
-            :score 0}})
+  {:Team1 {:players (map :id (take 2 (vals players)))
+            :total-score 0}
+   :Team2 {:players (map :id (drop 2 (vals players)))
+            :total-score 0}})
 
 (defn find-match [matches player]
   (log/info "Finding match for" player)
@@ -60,7 +60,8 @@
         updated-matches (swap! matches #(update % id mark-player-as-ready))]
     (when (every? :ready-to-start?
                   (vals (get-in updated-matches [id :players])))
-      (match/start matches id)))
+      ;TODO First model should come somewhere else and should not
+      (match/start matches id match/initial-model-fns {})))
   (get-match matches id))
 
 ;(find-match (atom {}) "a")

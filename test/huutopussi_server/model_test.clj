@@ -10,7 +10,7 @@
 (def d-card (pick-card deck "A" :diamonds))
 (def e-card (pick-card deck "K" :clubs))
 (def f-card (pick-card deck "K" :hearts))
-(def teams {"Team1" ["a" "c"] "Team2" ["b" "d"]})
+(def teams {:Team1 ["a" "c"] :Team2 ["b" "d"]})
 
 (deftest after-init
   (let [game-model (model/init teams
@@ -21,6 +21,7 @@
             :current-trick-cards []
             :game-ended? false
             :teams teams
+            :scores {:Team1 0 :Team2 0}
             :events []
             :players {"a" {:player-id "a" :player-index 0 :hand-cards [a-card] :possible-cards [a-card] :possible-actions []}
                       "b" {:player-id "b" :player-index 1 :hand-cards [b-card] :possible-cards [b-card] :possible-actions []}
@@ -39,6 +40,7 @@
             :current-trick-cards [{:card a-card :player "a"}]
             :game-ended? false
             :teams teams
+            :scores {:Team1 0 :Team2 0}
             :events [{:event-type :card-played :player "a" :value {:card a-card}}]
             :players {"a" {:player-id "a" :player-index 0 :hand-cards [] :possible-cards [a-card] :possible-actions []}
                       "b" {:player-id "b" :player-index 1 :hand-cards [b-card] :possible-cards [b-card] :possible-actions []}
@@ -59,6 +61,7 @@
             :current-trick-cards []
             :game-ended? true
             :teams teams
+            :scores {:Team1 64 :Team2 0}
             :events [{:event-type :card-played :player "a" :value {:card a-card}}
                      {:event-type :card-played :player "b" :value {:card b-card}}
                      {:event-type :card-played :player "c" :value {:card c-card}}
