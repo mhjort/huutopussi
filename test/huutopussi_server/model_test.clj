@@ -87,3 +87,37 @@
                       "c" {:player-id "c" :player-index 2 :hand-cards [] :possible-cards [c-card] :possible-actions []}
                       "d" {:player-id "d" :player-index 3 :hand-cards [] :possible-cards [d-card] :possible-actions []}}}
            game-model))))
+
+(defn- play-first-action-if-possible [{:keys [next-player-id players] :as game-model}]
+  (if-let [{:keys [action-type suit]} (-> players (get-in [next-player-id :possible-actions]) first)]
+    (case action-type
+      :declare-trump (model/tick game-model {:action-type :declare-trump
+                                             :player-id next-player-id
+                                             :suit suit})
+      :ask-for-trump (model/tick game-model {:action-type :ask-for-trump
+                                             :player-id next-player-id})
+      :ask-for-half-trump (model/tick game-model {:action-type :ask-for-trump
+                                                  :player-id next-player-id
+                                                  :suit suit}))
+    game-model))
+
+(defn- play-full-game []
+  (let [shuffled-cards (deck/same-suit-for-four-players (deck/card-deck))
+        teams {:Team1 ["a" "b"]
+               :Team2 ["c" "d"]}
+        game-model (model/init teams "a" (util/generate-players teams shuffled-cards))
+        play-first-possible-card (fn [{:keys [players next-player-id] :as game-model}]
+                                   (let [card-to-play (first (get-in players [next-player-id :possible-cards]))]
+                                     (model/tick game-model {:action-type :play-card :card card-to-play})))]
+    (loop [current-model game-model]
+      (let [{:keys [next-player-id] :as updated-model} (-> current-model
+                                                           play-first-action-if-possible
+                                                           play-first-possible-card)]
+        (if (seq (get-in updated-model [:players next-player-id :possible-cards]))
+          (recur updated-model)
+          updated-model)))))
+
+(deftest full-round-played
+  (let [final-game-model (play-full-game)]
+    (is (= 9 (:current-round final-game-model)))
+    (is (= true (:phase-ended? final-game-model)))))
