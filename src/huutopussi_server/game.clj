@@ -1,10 +1,9 @@
 (ns huutopussi-server.game
   (:require [huutopussi-server.util :as util]
-            [clojure.walk :as walk]
             [clojure.core.async :refer [chan go go-loop >! alts!]]
             [clojure.tools.logging :as log]))
 
-(defn get-game-status [{:keys [status game-model id] :as match} player-id events-since-str]
+(defn get-game-status [{:keys [status game-model id]} player-id events-since-str]
   (let [events-since (if events-since-str
                        (Integer/parseInt events-since-str)
                        0)
@@ -23,20 +22,24 @@
      :scores (:scores visible-game-model)
      :current-trick-cards (:current-trick-cards visible-game-model)}))
 
-(defn- start-game-loop [model-tick get-match-game-model update-match-game-model!]
+(defn- start-game-loop [model-fns get-match-game-model update-match-game-model!]
   (let [poison-pill (chan)
-        game-ended (go-loop []
-                            (let [{:keys [game-model players]} (get-match-game-model)
-                                  next-player-id (:next-player-id game-model)
-                                  input-channel (get-in players [next-player-id :input-channel])
-                                  [action ch] (alts! [input-channel poison-pill])]
-                              (when (= input-channel ch)
-                                (log/info "Got input action" action)
-                                (let [updated-game-model (model-tick game-model action)]
-                                  (log/info "Action" action "run and model updated to" (util/pretty-print updated-game-model))
-                                  (update-match-game-model! updated-game-model)
-                                  (when-not (:game-ended? updated-game-model)
-                                    (recur))))))]
+        game-ended (go-loop [active-model-fns model-fns]
+                     (let [model-tick (:model-tick (first active-model-fns))
+                           {:keys [game-model players]} (get-match-game-model)
+                           next-player-id (:next-player-id game-model)
+                           input-channel (get-in players [next-player-id :input-channel])
+                           [action ch] (alts! [input-channel poison-pill])]
+                       (when (= input-channel ch)
+                         (log/info "Got input action" action)
+                         (let [{:keys [phase-ended?] :as updated-game-model} (model-tick game-model action)
+                               model-fns-for-next-round (if phase-ended?
+                                                          (rest active-model-fns)
+                                                          active-model-fns)]
+                           (log/info "Action" action "run and model updated to" (util/pretty-print updated-game-model))
+                           (update-match-game-model! updated-game-model)
+                           (when (seq model-fns-for-next-round)
+                             (recur model-fns-for-next-round))))))]
     [game-ended poison-pill]))
 
 (defn start [{:keys [teams
@@ -44,11 +47,11 @@
                      cards-per-player
                      get-match-game-model
                      update-match-game-model!
-                     model-init
-                     model-tick]}]
-  (let [game-model (model-init teams starting-player-id cards-per-player)]
+                     model-fns]}]
+  (let [first-model-init (:model-init (first model-fns))
+        game-model (first-model-init teams starting-player-id (util/generate-players teams cards-per-player))]
     (update-match-game-model! game-model)
-    (start-game-loop model-tick get-match-game-model update-match-game-model!)))
+    (start-game-loop model-fns get-match-game-model update-match-game-model!)))
 
 (defn run-action [{:keys [game-model id] :as match} player-id {:keys [action-type card-index] :as action}]
   (log/info "Going to run action with match" id "player-id" player-id "and action" action)

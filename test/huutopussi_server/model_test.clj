@@ -1,5 +1,6 @@
 (ns huutopussi-server.model-test
   (:require [clojure.test :refer [deftest is]]
+            [huutopussi-server.util :as util]
             [huutopussi-server.deck :as deck :refer [pick-card]]
             [huutopussi-server.model :as model]))
 
@@ -11,47 +12,49 @@
 (def e-card (pick-card deck "K" :clubs))
 (def f-card (pick-card deck "K" :hearts))
 (def teams {:Team1 ["a" "c"] :Team2 ["b" "d"]})
+(def initial-players {"a" {:player-id "a" :player-index 0 :hand-cards [a-card] :possible-cards [] :possible-actions []}
+                      "b" {:player-id "b" :player-index 1 :hand-cards [b-card] :possible-cards [] :possible-actions []}
+                      "c" {:player-id "c" :player-index 2 :hand-cards [c-card] :possible-cards [] :possible-actions []}
+                      "d" {:player-id "d" :player-index 3 :hand-cards [d-card] :possible-cards [] :possible-actions []}})
 
 (deftest after-init
-  (let [game-model (model/init teams
-                               "a"
-                               [[a-card][b-card][c-card][d-card]])]
+  (let [game-model (model/init teams "a" initial-players)]
     (is (= {:current-round 0
             :next-player-id "a"
             :current-trick-cards []
-            :game-ended? false
+            :phase-ended? false
             :teams teams
             :scores {:Team1 0 :Team2 0}
             :events []
             :players {"a" {:player-id "a" :player-index 0 :hand-cards [a-card] :possible-cards [a-card] :possible-actions []}
-                      "b" {:player-id "b" :player-index 1 :hand-cards [b-card] :possible-cards [b-card] :possible-actions []}
-                      "c" {:player-id "c" :player-index 2 :hand-cards [c-card] :possible-cards [c-card] :possible-actions []}
-                      "d" {:player-id "d" :player-index 3 :hand-cards [d-card] :possible-cards [d-card] :possible-actions []}}}
+                      "b" {:player-id "b" :player-index 1 :hand-cards [b-card] :possible-cards [] :possible-actions []}
+                      "c" {:player-id "c" :player-index 2 :hand-cards [c-card] :possible-cards [] :possible-actions []}
+                      "d" {:player-id "d" :player-index 3 :hand-cards [d-card] :possible-cards [] :possible-actions []}}}
            game-model))))
 
 (deftest one-card-played
   (let [game-model (-> (model/init teams
                                    "a"
-                                   [[a-card][b-card][c-card][d-card]])
+                                   initial-players)
                        (model/tick {:action-type :play-card
                                     :card a-card}))]
     (is (= {:current-round 0
             :next-player-id "b"
             :current-trick-cards [{:card a-card :player "a"}]
-            :game-ended? false
+            :phase-ended? false
             :teams teams
             :scores {:Team1 0 :Team2 0}
             :events [{:event-type :card-played :player "a" :value {:card a-card}}]
             :players {"a" {:player-id "a" :player-index 0 :hand-cards [] :possible-cards [a-card] :possible-actions []}
                       "b" {:player-id "b" :player-index 1 :hand-cards [b-card] :possible-cards [b-card] :possible-actions []}
-                      "c" {:player-id "c" :player-index 2 :hand-cards [c-card] :possible-cards [c-card] :possible-actions []}
-                      "d" {:player-id "d" :player-index 3 :hand-cards [d-card] :possible-cards [d-card] :possible-actions []}}}
+                      "c" {:player-id "c" :player-index 2 :hand-cards [c-card] :possible-cards [] :possible-actions []}
+                      "d" {:player-id "d" :player-index 3 :hand-cards [d-card] :possible-cards [] :possible-actions []}}}
            game-model))))
 
 (deftest one-round-played
   (let [game-model (-> (model/init teams
                                    "a"
-                                   [[a-card e-card f-card][b-card][c-card][d-card]])
+                                   (assoc-in initial-players ["a" :hand-cards] [a-card e-card f-card]))
                        (model/tick {:action-type :play-card :card a-card})
                        (model/tick {:action-type :play-card :card b-card})
                        (model/tick {:action-type :play-card :card c-card})
@@ -59,7 +62,7 @@
     (is (= {:current-round 1
             :next-player-id "a"
             :current-trick-cards []
-            :game-ended? true
+            :phase-ended? true
             :teams teams
             :scores {:Team1 64 :Team2 0}
             :events [{:event-type :card-played :player "a" :value {:card a-card}}

@@ -3,7 +3,6 @@
             [cheshire.core :as cheshire]
             [ring.mock.request :as mock]
             [huutopussi-server.match :as match]
-            [huutopussi-server.model :as model]
             [huutopussi-server.handler :refer [create-app]]))
 
 (def matches (atom {}))
@@ -110,8 +109,7 @@
 (deftest playing-real-match
   (reset! matches {"match-1" match-with-four-players})
   (testing "status when match has started"
-    (match/start matches "match-1" {:model-init model/init
-                                    :model-tick model/tick} {})
+    (match/start matches "match-1" match/initial-model-fns {})
     (Thread/sleep 100)
     (is (= :started (:status (get @matches "match-1"))))
     (let [status (get-status "match-1" "player-1")]
@@ -146,15 +144,15 @@
     (testing "when game ends total score is updated and new game is started"
       (match/start matches
                    "match-1"
-                   {:model-init (fn [_ _ _]
-                                  (swap! started-game-rounds inc)
-                                  {:next-player-id "player-1"
-                                   :players {"player-1" {:possible-actions [{:id "continue-game"}
-                                                                            {:id "end-game"}]}}
-                                   :game-ended? false})
-                    :model-tick (fn [game-model {:keys [id]}]
-                                  (assoc game-model :scores {:Team1 100 :Team2 40}
-                                                    :game-ended? (= "end-game" id)))}
+                   [{:model-init (fn [_ _ _]
+                                   (swap! started-game-rounds inc)
+                                   {:next-player-id "player-1"
+                                    :players {"player-1" {:possible-actions [{:id "continue-game"}
+                                                                             {:id "end-game"}]}}
+                                    :phase-ended? false})
+                     :model-tick (fn [game-model {:keys [id]}]
+                                   (assoc game-model :scores {:Team1 100 :Team2 40}
+                                          :phase-ended? (= "end-game" id)))}]
                    {:time-before-starting-next-round 10})
       (Thread/sleep 100)
       (is (= :started (:status (get @matches "match-1"))))

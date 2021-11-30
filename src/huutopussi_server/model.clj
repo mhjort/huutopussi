@@ -1,5 +1,6 @@
 (ns huutopussi-server.model
   (:require [huutopussi-server.deck :as deck]
+            [huutopussi-server.util :as util]
             [medley.core :as medley]))
 
 (defn winning-card [cards trump-suit]
@@ -92,12 +93,6 @@
       (filter #(= :trump-declared (:event-type %)))
       (map #(get-in % [:value :suit]))))
 
-(defn- team-mate-for-player [player-id teams]
-  (->> (filter #(some #{player-id} %) (vals teams))
-       (first)
-       (remove #{player-id})
-       (first)))
-
 (defn- declare-trump-action [suit]
   {:id (str "declare-trump:" (name suit))
    :action-type :declare-trump
@@ -116,7 +111,7 @@
 
 (defn- possible-actions-for-player [player-id {:keys [teams events] :as game-model}]
   (let [player-hand-cards (get-in game-model [:players player-id :hand-cards])
-        team-mate-player-id (team-mate-for-player player-id teams)
+        team-mate-player-id (util/team-mate-for-player player-id teams)
         possible-player-trumps (remove (set (already-declared-trump-suits events)) (possible-trumps player-hand-cards))
         possible-player-half-trumps (remove (set (already-declared-trump-suits events)) (possible-half-trumps player-hand-cards))]
     (if (seq possible-player-trumps)
@@ -147,7 +142,7 @@
                                                          current-trump-suit))
         trick-ended? (= (count players) (count (:current-trick-cards updated-game-model)))
         ;TODO Better check for this
-        game-ended? (and trick-ended?
+        phase-ended? (and trick-ended?
                          (empty? (get-in updated-game-model [:players next-player-id :hand-cards])))]
     (if trick-ended?
       (let [win-card (winning-card (map :card (:current-trick-cards updated-game-model)) current-trump-suit)
@@ -156,16 +151,16 @@
                            :player)
             trick-ended-model (-> updated-game-model
                                   (update :current-round inc)
-                                  (assoc :game-ended? game-ended?)
+                                  (assoc :phase-ended? phase-ended?)
                                   (assoc :current-trick-cards [])
-                                  (update :events conj {:event-type :round-won :player win-player :value {:card win-card :last-round? game-ended?}})
+                                  (update :events conj {:event-type :round-won :player win-player :value {:card win-card :last-round? phase-ended?}})
                                   (assoc :next-player-id win-player)
                                   (assoc-in [:players win-player :possible-cards] (possible-cards-for-next-player win-player [])))]
         (assoc-in trick-ended-model [:players win-player :possible-actions] (possible-actions-for-player win-player trick-ended-model)))
       (let [next-player-id (select-next-player-id (get-in updated-game-model [:players next-player-id :player-index])
                                                   (:players updated-game-model))]
         (-> updated-game-model
-            (assoc :game-ended? game-ended?)
+            (assoc :phase-ended? phase-ended?)
             (assoc :next-player-id next-player-id)
             (assoc-in [:players next-player-id :possible-cards]
                       (possible-cards-for-next-player next-player-id (:current-trick-cards updated-game-model))))))))
@@ -182,7 +177,7 @@
         (assoc-in [:players next-player-id :possible-cards] (possible-cards [] hand-cards suit)))))
 
 (defn- ask-for-trump [{:keys [next-player-id teams] :as game-model} {:keys [player-id]}]
-  (let [target-player (team-mate-for-player player-id teams)
+  (let [target-player (util/team-mate-for-player player-id teams)
         player-hand-cards (get-in game-model [:players target-player :hand-cards])
         possible-trump (first (possible-trumps player-hand-cards))]
     (cond-> game-model
@@ -197,7 +192,7 @@
                                      :player-id target-player}))))
 
 (defn- ask-for-half-trump [{:keys [next-player-id teams] :as game-model} {:keys [player-id suit]}]
-  (let [target-player (team-mate-for-player player-id teams)
+  (let [target-player (util/team-mate-for-player player-id teams)
         player-hand-cards (get-in game-model [:players target-player :hand-cards])
         possible-half-trumps (possible-half-trumps player-hand-cards)
         trump-can-be-made? (some #{suit} possible-half-trumps)]
@@ -220,25 +215,16 @@
                         :ask-for-trump (ask-for-trump game-model action))]
     (assoc updated-model :scores (calculate-scores updated-model))))
 
-(defn init [teams starting-player shuffled-cards]
-  ;TODO Works only with exactly 2 teams with both having 2 players
-  (let [[team1-first-player team1-second-player team2-first-player team2-second-player] (mapcat val teams)
-        player-ids [team1-first-player team2-first-player team1-second-player team2-second-player]
-        game-model {:current-round 0
-                    :next-player-id starting-player
-                    :current-trick-cards []
-                    :events []
-                    :game-ended? false
-                    :teams teams
-                    :players (into {} (map (fn [[player-index player-id] cards]
-                                             (let [hand-cards (vec cards)]
-                                               [player-id {:player-id player-id
-                                                           :player-index player-index
-                                                           :hand-cards hand-cards
-                                                           :possible-cards hand-cards
-                                                           :possible-actions []}]))
-                                           (map-indexed vector player-ids)
-                                           shuffled-cards))}]
+(defn init [teams starting-player players]
+  (let [next-player-hand-cards (get-in players [starting-player :hand-cards])
+        game-model (-> {:current-round 0
+                        :next-player-id starting-player
+                        :current-trick-cards []
+                        :events []
+                        :phase-ended? false
+                        :teams teams
+                        :players players}
+                       (assoc-in [:players starting-player :possible-cards] next-player-hand-cards))]
     (assoc game-model :scores (calculate-scores game-model))))
 
 (defn play-test-game []

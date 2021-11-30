@@ -8,8 +8,8 @@
             [clojure.tools.logging :as log]))
 
 (def initial-model-fns
-  {:model-init model/init
-   :model-tick model/tick})
+  [{:model-init model/init
+    :model-tick model/tick}])
 
 (defn- get-match [matches id]
   (let [match (get @matches id)]
@@ -75,7 +75,7 @@
                          starting-players
                          {:keys [time-before-starting-next-round]
                           :or {time-before-starting-next-round 15000}}
-                         {:keys [model-init model-tick]}]
+                         model-fns]
   (let [poison-pill (chan)
         update-game-model! (fn [game-model]
                                   (swap! matches #(update % id assoc :game-model game-model)))]
@@ -87,8 +87,7 @@
                                                             :cards-per-player shuffled-cards
                                                             :get-match-game-model #(get-match matches id)
                                                             :update-match-game-model! update-game-model!
-                                                            :model-init model-init
-                                                            :model-tick model-tick})
+                                                            :model-fns model-fns})
             _ (swap! matches #(update % id assoc :status :started :players players))
             [_ ch] (alts! [game-ended poison-pill])]
         (if (= poison-pill ch)
