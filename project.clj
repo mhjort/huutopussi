@@ -5,6 +5,7 @@
   :dependencies [[org.clojure/clojure "1.10.0"]
                  [compojure "1.6.1"]
                  [medley "1.3.0"]
+                 [metosin/malli "0.6.2"]
                  [org.clojure/tools.logging "1.1.0"]
                  [org.clojure/core.async "1.3.610"]
                  [ring/ring-defaults "0.3.2"]
