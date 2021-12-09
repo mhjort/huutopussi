@@ -135,30 +135,43 @@
 
 (deftest playing-stubbed-match
   (reset! matches {"match-1" match-with-four-players})
-  (let [started-game-rounds (atom 0)]
+  (let [started-phase1-rounds (atom 0)
+        started-phase2-rounds (atom 0)]
     (testing "when game ends total score is updated and new game is started"
       (match/start matches
                    "match-1"
-                   [{:model-init (fn [_ _ _]
-                                   (swap! started-game-rounds inc)
-                                   {:next-player-id "player-1"
-                                    :players {"player-1" {:possible-actions [{:id "continue-game"}
+                   [{:model-init (fn [_ starting-player-id _]
+                                   (swap! started-phase1-rounds inc)
+                                   {:next-player-id starting-player-id
+                                    :phase-ended? false})
+                     :model-tick (fn [game-model _]
+                                   (assoc game-model :phase-ended? true :next-player-id "player-2"))}
+                    {:model-init (fn [_ starting-player-id _]
+                                   (swap! started-phase2-rounds inc)
+                                   {:next-player-id starting-player-id
+                                    :scores {:Team1 0 :Team2 0}
+                                    :players {"player-2" {:possible-actions [{:id "continue-game"}
                                                                              {:id "end-game"}]}}
                                     :phase-ended? false})
                      :model-tick (fn [game-model {:keys [id]}]
-                                   (assoc game-model :scores {:Team1 100 :Team2 40}
-                                          :phase-ended? (= "end-game" id)))}]
+                                   (-> game-model
+                                       (update-in [:scores :Team1] inc)
+                                       (assoc :phase-ended? (= "end-game" id))))}]
                    {:time-before-starting-next-round 10})
       (Thread/sleep 100)
       (is (= :started (:status (get @matches "match-1"))))
       (is (= {:Team1 {:total-score 0 :players ["player-1-name" "player-3-name"]}
               :Team2 {:total-score 0 :players ["player-2-name" "player-4-name"]}}
              (:teams (get-status "match-1" "player-1"))))
-      (is (= 1 @started-game-rounds))
-      (run-action "match-1" "player-1" {:id "continue-game" :action-type :dummy})
-      (is (= 1 @started-game-rounds))
-      (run-action "match-1" "player-1" {:id "end-game" :action-type :dummy})
-      (is (= 2 @started-game-rounds))
-      (is (= {:Team1 {:total-score 100 :players ["player-1-name" "player-3-name"]}
-              :Team2 {:total-score 40 :players ["player-2-name" "player-4-name"]}}
+      (is (= 1 @started-phase1-rounds))
+      (is (= 0 @started-phase2-rounds))
+      (run-action "match-1" "player-1" {:id "set-target-score" :action-type :dummy})
+      (is (= 1 @started-phase1-rounds))
+      (is (= 1 @started-phase2-rounds))
+      (run-action "match-1" "player-2" {:id "continue-game" :action-type :dummy})
+      (is (= 1 @started-phase2-rounds))
+      (run-action "match-1" "player-2" {:id "end-game" :action-type :dummy})
+      (is (= 2 @started-phase1-rounds))
+      (is (= {:Team1 {:total-score 2 :players ["player-1-name" "player-3-name"]}
+              :Team2 {:total-score 0 :players ["player-2-name" "player-4-name"]}}
              (:teams (get-status "match-1" "player-1")))))))

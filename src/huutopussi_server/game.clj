@@ -22,6 +22,11 @@
      :scores (:scores visible-game-model)
      :current-trick-cards (:current-trick-cards visible-game-model)}))
 
+(defn- init-model [model-fns {:keys [teams next-player-id players] :as previous-game-model}]
+  (if-let [first-model-init (:model-init (first model-fns))]
+    (first-model-init teams next-player-id players)
+    previous-game-model))
+
 (defn- start-game-loop [model-fns get-match-game-model update-match-game-model!]
   (let [poison-pill (chan)
         game-ended (go-loop [active-model-fns model-fns]
@@ -33,11 +38,13 @@
                        (when (= input-channel ch)
                          (log/info "Got input action" action)
                          (let [{:keys [phase-ended?] :as updated-game-model} (model-tick game-model action)
-                               model-fns-for-next-round (if phase-ended?
-                                                          (rest active-model-fns)
-                                                          active-model-fns)]
+                               [model-for-next-round
+                                model-fns-for-next-round] (if phase-ended?
+                                                            [(init-model (rest active-model-fns) updated-game-model)
+                                                             (rest active-model-fns)]
+                                                            [updated-game-model active-model-fns])]
                            (log/info "Action" action "run and model updated to" (util/pretty-print updated-game-model))
-                           (update-match-game-model! updated-game-model)
+                           (update-match-game-model! model-for-next-round)
                            (when (seq model-fns-for-next-round)
                              (recur model-fns-for-next-round))))))]
     [game-ended poison-pill]))
@@ -48,8 +55,9 @@
                      get-match-game-model
                      update-match-game-model!
                      model-fns]}]
-  (let [first-model-init (:model-init (first model-fns))
-        game-model (first-model-init teams starting-player-id (util/generate-players teams cards-per-player))]
+  (let [game-model (init-model model-fns {:teams teams
+                                          :next-player-id starting-player-id
+                                          :players (util/generate-players teams cards-per-player)})]
     (update-match-game-model! game-model)
     (start-game-loop model-fns get-match-game-model update-match-game-model!)))
 
