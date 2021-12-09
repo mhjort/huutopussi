@@ -1,4 +1,4 @@
-(ns huutopussi-server.model
+(ns huutopussi-server.models.marjapussi
   (:require [huutopussi-server.deck :as deck]
             [huutopussi-server.util :as util]
             [medley.core :as medley]))

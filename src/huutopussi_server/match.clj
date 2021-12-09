@@ -1,15 +1,15 @@
 (ns huutopussi-server.match
   (:require [huutopussi-server.deck :as deck]
             [huutopussi-server.game :as game]
-            [huutopussi-server.model :as model]
+            [huutopussi-server.models.marjapussi :as marjapussi]
             [huutopussi-server.util :as util]
             [huutopussi-server.schemas :as schemas]
             [clojure.core.async :refer [chan go go-loop >! alts! timeout]]
             [clojure.tools.logging :as log]))
 
 (def initial-model-fns
-  [{:model-init model/init
-    :model-tick model/tick}])
+  [{:model-init marjapussi/init
+    :model-tick marjapussi/tick}])
 
 (defn- get-match [matches id]
   (let [match (get @matches id)]

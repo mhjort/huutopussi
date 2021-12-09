@@ -1,8 +1,8 @@
-(ns huutopussi-server.model-test
+(ns huutopussi-server.models.marjapussi-test
   (:require [clojure.test :refer [deftest is]]
             [huutopussi-server.util :as util]
             [huutopussi-server.deck :as deck :refer [pick-card]]
-            [huutopussi-server.model :as model]))
+            [huutopussi-server.models.marjapussi :as model]))
 
 (def deck (deck/card-deck))
 (def a-card (pick-card deck "A" :hearts))
