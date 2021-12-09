@@ -64,7 +64,6 @@
       (is (= {:id "match-1"
               :status "waiting"
               :declarer "player-1"
-              :teams {}
               :players [{:name "player-1-name"}]}
              body))))
   (testing "status with matched"
@@ -74,8 +73,6 @@
       (is (= {:id "match-1"
               :status "matched"
               :declarer "player-1"
-              :teams {:Team1 ["player-1-name" "player-3-name"]
-                      :Team2 ["player-2-name" "player-4-name"]}
               :players [{:name "player-1-name"}
                         {:name "player-2-name"}
                         {:name "player-3-name"}
@@ -88,8 +85,6 @@
       (is (= {:id "match-1"
               :status "matched"
               :declarer "player-1"
-              :teams {:Team1 ["player-1-name" "player-3-name"]
-                      :Team2 ["player-2-name" "player-4-name"]}
               :players [{:name "player-1-name"}
                         {:name "player-2-name"}
                         {:name "player-3-name"}

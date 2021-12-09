@@ -3,7 +3,7 @@
             [huutopussi-server.game :as game]
             [huutopussi-server.model :as model]
             [huutopussi-server.util :as util]
-            [clojure.walk :as walk]
+            [huutopussi-server.schemas :as schemas]
             [clojure.core.async :refer [chan go go-loop >! alts! timeout]]
             [clojure.tools.logging :as log]))
 
@@ -17,30 +17,13 @@
       (throw (Exception. (str "Could not find match with id " id " from " @matches))))
     match))
 
-(defn- player-name-by-id [match id]
-  (if-let [player-name (get-in match [:players id :name])]
-    player-name
-    (throw (ex-info "Could not find player name by id" {:id id}))))
-
-(defn- replace-player-ids-with-player-names [match game-model]
-  ;This is a security feature. Internally model uses player ids that also act as api keys
-  (walk/prewalk
-    (fn [form]
-      (cond
-        (:players form) (update form :players #(map (partial player-name-by-id match) %))
-        (:player form) (update form :player (partial player-name-by-id match))
-        (:next-player-name form) (update form :next-player-name (partial player-name-by-id match))
-        (:target-player form) (update form :target-player (partial player-name-by-id match))
-        :else form))
-    game-model))
-
 (defn get-match-status [matches id player-id events-since-str]
   (let [{:keys [teams status] :as match} (get-match matches id)]
     (when-not (= :started status)
       (throw (Exception. (str "Match " id " status should be started, but was " status))))
-    (replace-player-ids-with-player-names match
-                                          (assoc (game/get-game-status match player-id events-since-str)
-                                                 :teams teams))))
+    (util/replace-player-ids-with-player-names match
+                                               (assoc (game/get-game-status match player-id events-since-str)
+                                                      :teams teams))))
 
 (defn stop-match-loops [matches]
   (doseq [[id {:keys [match-loop-poison-pill]}] @matches]
@@ -48,8 +31,6 @@
       (log/info "Stopping match loop for game" id)
       (go (>! match-loop-poison-pill true)))))
 
-(defn- map-vals [f m]
-  (reduce-kv #(assoc %1 %2 (f %3)) {} m))
 
 (defn mark-as-ready-to-start [matches id player]
   (let [mark-player-as-ready #(assoc-in % [:players player :ready-to-start?] true)
@@ -103,15 +84,16 @@
 
 (defn start [matches id model-fns options]
   (let [{:keys [players teams] :as match} (get-match matches id)
-        flatted-teams (map-vals (fn [{:keys [players]}]
-                                  players)
-                                teams)
+        _ (schemas/validate-schema schemas/Teams teams)
+        flatted-teams (util/map-vals (fn [{:keys [players]}]
+                                       players)
+                                     teams)
         starting-players (cycle (mapcat vector
                                         (first (vals flatted-teams))
                                         (second (vals flatted-teams))))
         _ (log/info "All players ready. Starting match" (util/pretty-print match))
-        players-with-input-channels (map-vals #(assoc % :input-channel (chan)) players)]
-    (start-match-loop matches flatted-teams id players-with-input-channels starting-players options model-fns))
+        players-with-input-channels (util/map-vals #(assoc % :input-channel (chan)) players)]
+    (start-match-loop matches teams id players-with-input-channels starting-players options model-fns))
   @matches)
 
 (defn run-action [matches id player-id action]

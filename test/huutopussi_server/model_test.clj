@@ -11,7 +11,8 @@
 (def d-card (pick-card deck "A" :diamonds))
 (def e-card (pick-card deck "K" :clubs))
 (def f-card (pick-card deck "K" :hearts))
-(def teams {:Team1 ["a" "c"] :Team2 ["b" "d"]})
+(def teams {:Team1 {:players ["a" "c"]}
+            :Team2 {:players ["b" "d"]}})
 (def initial-players {"a" {:player-id "a" :player-index 0 :hand-cards [a-card] :possible-cards [] :possible-actions []}
                       "b" {:player-id "b" :player-index 1 :hand-cards [b-card] :possible-cards [] :possible-actions []}
                       "c" {:player-id "c" :player-index 2 :hand-cards [c-card] :possible-cards [] :possible-actions []}
@@ -103,8 +104,6 @@
 
 (defn- play-full-game []
   (let [shuffled-cards (deck/same-suit-for-four-players (deck/card-deck))
-        teams {:Team1 ["a" "b"]
-               :Team2 ["c" "d"]}
         game-model (model/init teams "a" (util/generate-players teams shuffled-cards))
         play-first-possible-card (fn [{:keys [players next-player-id] :as game-model}]
                                    (let [card-to-play (first (get-in players [next-player-id :possible-cards]))]

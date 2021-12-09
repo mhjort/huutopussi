@@ -44,8 +44,9 @@
     (:player-id next-player)))
 
 (defn calculate-scores [{:keys [events teams]}]
-  (let [team-by-player (reduce-kv (fn [m k [p1 p2]]
-                                    (assoc m p1 k p2 k))
+  (let [team-by-player (reduce-kv (fn [m team {:keys [players]}]
+                                    (let [[p1 p2] players]
+                                      (assoc m p1 team p2 team)))
                                   {}
                                   teams)
         initial-scores (reduce-kv (fn [m team _]

@@ -16,15 +16,11 @@
 
 (defn get-match [matches id]
   (if-let [match (get @matches id)]
-    (let [{:keys [status declarer players teams]} match]
+    (let [{:keys [status declarer players]} match]
       ;TODO Use separate atom for matchmake and actual game. This is a mess!
       {:id id
        :status status
        :declarer declarer
-       :teams (reduce-kv (fn [m team-name {player-ids :players}]
-                           (assoc m (name team-name) (map #(:name (get players %)) player-ids)))
-                         {}
-                         teams)
        :players (mapv #(select-keys % [:name]) (vals players))})
     (throw (Exception. (str "No such match: " id)))))
 
@@ -60,12 +56,15 @@
         updated-matches (swap! matches #(update % id mark-player-as-ready))]
     (when (every? :ready-to-start?
                   (vals (get-in updated-matches [id :players])))
-      ;TODO First model should come somewhere else and should not
+      ;TODO First model should come somewhere else
       (match/start matches id match/initial-model-fns {})))
   (get-match matches id))
 
-;(find-match (atom {}) "a")
-;(find-match (atom {"1" {:declarer "a" :players {"a" {:name "a" :id "GASJ"}
-;                                                "b" {:name "b" :id "DSD"}
-;                                                "c" {:name "c" :id "DASDSA"}
-;                                                }}}) "d")
+
+(comment
+  (let [matches (atom {})]
+    (find-match matches "a")
+    (find-match matches "b")
+    (find-match matches "c")
+    (find-match matches "d"))
+  )
