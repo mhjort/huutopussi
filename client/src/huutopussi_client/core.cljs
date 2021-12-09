@@ -1,6 +1,7 @@
 (ns ^:figwheel-hooks huutopussi-client.core
   (:require-macros [cljs.core.async.macros :refer [go]])
   (:require [huutopussi-client.game-client :as game-client]
+            [huutopussi-client.bot :as bot]
             [cljs.core.async :refer [<! timeout]]
             [goog.dom :as gdom]
             [cemerick.url :as url]
@@ -70,10 +71,6 @@
       (println "Matched match" id "with player id" player-id)
       (re-frame/dispatch [:matched [matched-match player-id]]))))
 
-(defn index-of [x coll]
-  (let [idx? (fn [i a] (when (= x a) i))]
-  (first (keep-indexed idx? coll))))
-
 (defn play-game [{:keys [match-id player-name player-id]}]
   (go
     (loop []
@@ -85,6 +82,7 @@
                     current-trump-suit
                     events
                     scores
+                    phase
                     next-player-name
                     teams]} (<! (game-client/get-game-status match-id player-id))]
         (re-frame/dispatch [:game-status {:cards hand-cards
@@ -93,37 +91,52 @@
                                           :events (:marjapussi events)
                                           :scores scores
                                           :teams teams
+                                          :phase phase
                                           :current-round (inc current-round) ;Server round is zero based
                                           :current-trump-suit current-trump-suit
                                           :next-player-name next-player-name
                                           :trick-cards current-trick-cards}])
-        (when (and auto-play?
-                   (= player-name next-player-name)
-                   (seq possible-cards))
-          (let [first-possible-card (first possible-cards)]
-            (println "Auto playing first card" first-possible-card)
-            (re-frame/dispatch [:player-card (index-of first-possible-card hand-cards)]))))
+        (when (and auto-play? (= player-name next-player-name))
+          (when-let [bot-action (bot/choose-bot-action {:phase phase
+                                                        :hand-cards hand-cards
+                                                        :possible-cards possible-cards
+                                                        :possible-actions possible-actions})]
+            (re-frame/dispatch bot-action))))
       (<! (timeout 500))
       (recur))))
 
-(defn- show-possible-trumps [{:keys [possible-actions]}]
-  (let [run-action (fn [id]
-                        (re-frame/dispatch [:player-action id])
-                        false)]
+(defn- run-action [id value]
+  (re-frame/dispatch [:player-action {:id id :value value}])
+  false)
+
+(defn- show-possible-trumps [{:keys [phase possible-actions]}]
+  (when (= "marjapussi" phase)
     (for [{:keys [action-type suit target-player id]} possible-actions]
       (case action-type
         "declare-trump" ^{:key suit}[:span " "
                                      [:a {:href "#"
-                                          :on-click #(run-action id)}
+                                          :on-click #(run-action id nil)}
                                       (str "Tee " (get suits-fi suit) "valtti!")]]
         "ask-for-half-trump" ^{:key suit} [:span " "
                                            [:a {:href "#"
-                                                :on-click #(run-action id)}
+                                                :on-click #(run-action id nil)}
                                             (str "Kysy onko pelaajalla " target-player " " (get suits-fi suit) "puolikasta!")]]
         "ask-for-trump" ^{:key target-player} [:span " "
                                                [:a {:href "#"
-                                                    :on-click #(run-action id)}
+                                                    :on-click #(run-action id nil)}
                                                 (str "Kysy onko pelaajalla " target-player " valtti!")]]))))
+
+(defn- show-possible-bidding-actions [{:keys [phase possible-actions]}]
+  (when (= "bidding" phase)
+    (for [{:keys [action-type possible-values id]} possible-actions]
+      (case action-type
+        "set-target-score" ^{:key id}[:div [:span "Aseta jaon pistemäärätavoite"]
+                                      [:select {:defaultValue "Valitse"
+                                                :on-change #(run-action id (js/parseInt (.. % -target -value)))}
+                                        [:option {:disabled true} "Valitse"]
+                                       (for [possible-value possible-values]
+                                         ^{:key possible-value}[:option {:value possible-value} possible-value])
+                                       ]]))))
 
 (defn- show-next-player [player-name game]
   (if (= player-name (:next-player-name game))
@@ -153,7 +166,8 @@
                  [:h3 "Jako"]
                  [:p (:current-round game) ". tikki, jaon pisteet: " (:scores game)
                   (when (:current-trump-suit game) (list ", " (get suits-fi (:current-trump-suit game)) "valtti"))]
-                 [:p (show-next-player player-name game) (show-possible-trumps game)]]
+                 [:p (show-next-player player-name game) (show-possible-trumps game)]
+                 (show-possible-bidding-actions game)]
                 ^{:key "main"} [:main
                  [:h3 "Käsikorttisi"]
                  [:ul#player-hand
@@ -268,9 +282,9 @@
 
 (re-frame/reg-event-fx
   :player-action
-  (fn [{:keys [db]} [_ id]]
+  (fn [{:keys [db]} [_ {:keys [id value]}]]
     ;TODO Check if user can actually do this
-    {:run-player-action {:match-id (-> db :match :id) :player-id (:player-id db) :action-id id}}))
+    {:run-player-action {:match-id (-> db :match :id) :player-id (:player-id db) :action-id id :action-value value}}))
 
 (re-frame/reg-fx
   :show-error
@@ -284,8 +298,8 @@
 
 (re-frame/reg-fx
   :run-player-action
-  (fn [{:keys [match-id player-id action-id]}]
-    (game-client/run-player-action match-id player-id action-id)))
+  (fn [{:keys [match-id player-id action-id action-value]}]
+    (game-client/run-player-action match-id player-id action-id action-value)))
 
 (re-frame/reg-fx
   :play-game

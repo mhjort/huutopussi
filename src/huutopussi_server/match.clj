@@ -2,13 +2,17 @@
   (:require [huutopussi-server.deck :as deck]
             [huutopussi-server.game :as game]
             [huutopussi-server.models.marjapussi :as marjapussi]
+            [huutopussi-server.models.bidding :as bidding]
             [huutopussi-server.util :as util]
+            [huutopussi-server.scoring :as scoring]
             [huutopussi-server.schemas :as schemas]
             [clojure.core.async :refer [chan go go-loop >! alts! timeout]]
             [clojure.tools.logging :as log]))
 
 (def initial-model-fns
-  [{:model-init marjapussi/init
+  [{:model-init bidding/init
+    :model-tick bidding/tick}
+   {:model-init marjapussi/init
     :model-tick marjapussi/tick}])
 
 (defn- get-match [matches id]
@@ -41,11 +45,7 @@
 
 (defn- update-total-score [matches id]
   (let [{:keys [game-model teams]} (get-match matches id)
-        scores (:scores game-model)
-        updated-teams (reduce-kv (fn [m team team-stats]
-                                   (let [score-for-team (team scores)]
-                                     (assoc m team (update team-stats :total-score + score-for-team))))
-                                 {} teams)]
+        updated-teams (scoring/update-team-scores teams (game/team-scores game-model))]
     (swap! matches #(update % id assoc :teams updated-teams))))
 
 (defn- update-match-state! [previous-state {:keys [phase events] :as game-model}]
@@ -102,4 +102,7 @@
 
 (defn run-action [matches id player-id action]
   (let [match (get @matches id)]
+    (when-not match
+      (throw (ex-info "Could not find match when running action" {:id id
+                                                                  :matches matches})))
     (game/run-action match player-id action)))

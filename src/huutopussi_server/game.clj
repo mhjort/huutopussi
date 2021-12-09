@@ -3,6 +3,15 @@
             [clojure.core.async :refer [chan go go-loop >! alts!]]
             [clojure.tools.logging :as log]))
 
+(defn team-scores [{:keys [scores] :as game-model}]
+  (reduce-kv (fn [m team score]
+               (let [target-score (get-in game-model [:teams team :target-score])]
+                 (cond-> m
+                   true (assoc-in [team :current] score)
+                   target-score (assoc-in [team :target] target-score))))
+             {}
+             scores))
+
 (defn get-game-status [{:keys [status game-model id events]} player-id]
   (when-not (= :started status)
     (throw (Exception. (str "Match " id " status should be started, but was " status))))
@@ -11,12 +20,14 @@
   {:current-round (:current-round game-model)
    :current-trump-suit (:current-trump-suit game-model)
    :events events
+   :phase (:phase game-model)
    :next-player-name (:next-player-id game-model)
    :possible-cards (get-in game-model [:players player-id :possible-cards])
    :possible-actions (get-in game-model [:players player-id :possible-actions])
    :hand-cards (get-in game-model [:players player-id :hand-cards])
-   :scores (:scores game-model)
+   :scores (team-scores game-model)
    :current-trick-cards (:current-trick-cards game-model)})
+
 
 (defn- init-model [model-fns {:keys [teams next-player-id players] :as previous-game-model}]
   (if-let [first-model-init (:model-init (first model-fns))]
@@ -57,21 +68,25 @@
     (update-match-game-model! game-model)
     (start-game-loop model-fns get-match-game-model update-match-game-model!)))
 
-(defn run-action [{:keys [game-model id] :as match} player-id {:keys [action-type card-index] :as action}]
-  (log/info "Going to run action with match" id "player-id" player-id "and action" action)
+(defn run-action [{:keys [game-model] :as match} player-id {:keys [action-type card-index value] :as action}]
+  (log/info "Going to run action with player-id" player-id "and action" action "from match" (keys match))
   (if (= (:next-player-id game-model) player-id)
     (let [player-details (get-in game-model [:players player-id])
           input-channel (get-in match [:players player-id :input-channel])
           matched-action (first (get (group-by :id (:possible-actions player-details)) (:id action)))
-          ;TODO Play cards shourld not be special case
+          ;TODO Play cards should not be special case
           executable-action (if (= "play-card" action-type)
                               {:action-type :play-card
                                :card (get-in player-details [:hand-cards card-index])}
-                              (assoc matched-action :player-id player-id))]
+                              ;TODO We should check if value was one of the possible-values
+                              (cond-> matched-action
+                                true (assoc :player-id player-id)
+                                value (assoc :value value)))]
+      (log/info "Matched action for player-id" player-id "was" action)
       (if executable-action
         (go (>! input-channel executable-action))
         (do
-          (log/warn "Could not find action" (:id action) "from match" id "for player" player-id)
+          (log/warn "Could not find action" (:id action) "for player" player-id)
           {:ok false}))
       {:ok true})
     {:ok false}))
