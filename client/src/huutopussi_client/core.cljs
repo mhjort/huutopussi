@@ -90,7 +90,7 @@
         (re-frame/dispatch [:game-status {:cards hand-cards
                                           :possible-cards possible-cards
                                           :possible-actions possible-actions
-                                          :events events
+                                          :events (:marjapussi events)
                                           :scores scores
                                           :teams teams
                                           :current-round (inc current-round) ;Server round is zero based

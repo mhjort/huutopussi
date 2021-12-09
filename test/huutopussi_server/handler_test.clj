@@ -110,7 +110,7 @@
     (let [status (get-status "match-1" "player-1")]
       (is (= {:current-round 0
               :next-player-name "player-1-name"
-              :events []
+              :events {:marjapussi []}
               :scores {:Team1 0 :Team2 0}
               :teams {:Team1 {:total-score 0 :players ["player-1-name" "player-3-name"]}
                       :Team2 {:total-score 0 :players ["player-2-name" "player-4-name"]}}}
@@ -119,15 +119,13 @@
     (let [player-a-card (-> (get-status "match-1" "player-1") :hand-cards first)
           _ (is (not (nil? player-a-card)))
           _ (run-action "match-1" "player-1" {:action-type "play-card" :card-index 0})
-          status (get-status "match-1" "player-1")
-          _ (is (= {:current-round 0
-                    :next-player-name "player-2-name"
-                    :events [{:event-type "card-played"
-                              :player "player-1-name"
-                              :value {:card player-a-card}}]}
-                   (select-keys status [:next-player-name :current-round :events])))
-          {:keys [body]} (request :get "/api/match/match-1/status/player-1?events-since=1")]
-      (is (= [] (:events body)))))
+          status (get-status "match-1" "player-1")]
+      (is (= {:current-round 0
+              :next-player-name "player-2-name"
+              :events {:marjapussi [{:event-type "card-played"
+                                     :player "player-1-name"
+                                     :value {:card player-a-card}}]}}
+             (select-keys status [:next-player-name :current-round :events])))))
   (testing "server ignores action when it is not player turn anymore"
     (let [events-before (:events (get-status "match-1" "player-1"))]
       (run-action "match-1" "player-1" {:action-type "play-card" :card-index 0})
@@ -143,6 +141,7 @@
                    [{:model-init (fn [_ starting-player-id _]
                                    (swap! started-phase1-rounds inc)
                                    {:next-player-id starting-player-id
+                                    :phase :phase1
                                     :phase-ended? false})
                      :model-tick (fn [game-model _]
                                    (assoc game-model :phase-ended? true :next-player-id "player-2"))}
@@ -152,6 +151,7 @@
                                     :scores {:Team1 0 :Team2 0}
                                     :players {"player-2" {:possible-actions [{:id "continue-game"}
                                                                              {:id "end-game"}]}}
+                                    :phase :phase2
                                     :phase-ended? false})
                      :model-tick (fn [game-model {:keys [id]}]
                                    (-> game-model

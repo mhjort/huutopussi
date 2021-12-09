@@ -23,6 +23,7 @@
     (is (= {:current-round 0
             :next-player-id "a"
             :current-trick-cards []
+            :phase :marjapussi
             :phase-ended? false
             :teams teams
             :scores {:Team1 0 :Team2 0}
@@ -42,6 +43,7 @@
     (is (= {:current-round 0
             :next-player-id "b"
             :current-trick-cards [{:card a-card :player "a"}]
+            :phase :marjapussi
             :phase-ended? false
             :teams teams
             :scores {:Team1 0 :Team2 0}
@@ -63,6 +65,7 @@
     (is (= {:current-round 1
             :next-player-id "a"
             :current-trick-cards []
+            :phase :marjapussi
             :phase-ended? true
             :teams teams
             :scores {:Team1 64 :Team2 0}

@@ -17,12 +17,12 @@
       (throw (Exception. (str "Could not find match with id " id " from " @matches))))
     match))
 
-(defn get-match-status [matches id player-id events-since-str]
+(defn get-match-status [matches id player-id]
   (let [{:keys [teams status] :as match} (get-match matches id)]
     (when-not (= :started status)
       (throw (Exception. (str "Match " id " status should be started, but was " status))))
     (util/replace-player-ids-with-player-names match
-                                               (assoc (game/get-game-status match player-id events-since-str)
+                                               (assoc (game/get-game-status match player-id)
                                                       :teams teams))))
 
 (defn stop-match-loops [matches]
@@ -30,7 +30,6 @@
     (when match-loop-poison-pill
       (log/info "Stopping match loop for game" id)
       (go (>! match-loop-poison-pill true)))))
-
 
 (defn mark-as-ready-to-start [matches id player]
   (let [mark-player-as-ready #(assoc-in % [:players player :ready-to-start?] true)
@@ -49,6 +48,11 @@
                                  {} teams)]
     (swap! matches #(update % id assoc :teams updated-teams))))
 
+(defn- update-match-state! [previous-state {:keys [phase events] :as game-model}]
+  (-> previous-state
+      (assoc :game-model game-model)
+      (assoc-in [:events phase] events)))
+
 (defn- start-match-loop [matches
                          teams
                          id
@@ -59,7 +63,7 @@
                          model-fns]
   (let [poison-pill (chan)
         update-game-model! (fn [game-model]
-                                  (swap! matches #(update % id assoc :game-model game-model)))]
+                             (swap! matches #(update % id update-match-state! game-model)))]
     (go-loop [starting-players-in-order starting-players]
       (swap! matches #(update % id assoc :match-loop-poison-pill poison-pill))
       (let [shuffled-cards (deck/shuffle-for-four-players (deck/card-deck))

@@ -3,24 +3,20 @@
             [clojure.core.async :refer [chan go go-loop >! alts!]]
             [clojure.tools.logging :as log]))
 
-(defn get-game-status [{:keys [status game-model id]} player-id events-since-str]
-  (let [events-since (if events-since-str
-                       (Integer/parseInt events-since-str)
-                       0)
-        visible-game-model game-model]
-    (when-not (= :started status)
-      (throw (Exception. (str "Match " id " status should be started, but was " status))))
-    (when-not game-model
-      (throw (Exception. (str "Started match " id " does not have game model"))))
-    {:current-round (:current-round visible-game-model)
-     :current-trump-suit (:current-trump-suit visible-game-model)
-     :events (drop events-since (:events visible-game-model))
-     :next-player-name (:next-player-id visible-game-model)
-     :possible-cards (get-in visible-game-model [:players player-id :possible-cards])
-     :possible-actions (get-in visible-game-model [:players player-id :possible-actions])
-     :hand-cards (get-in visible-game-model [:players player-id :hand-cards])
-     :scores (:scores visible-game-model)
-     :current-trick-cards (:current-trick-cards visible-game-model)}))
+(defn get-game-status [{:keys [status game-model id events]} player-id]
+  (when-not (= :started status)
+    (throw (Exception. (str "Match " id " status should be started, but was " status))))
+  (when-not game-model
+    (throw (Exception. (str "Started match " id " does not have game model"))))
+  {:current-round (:current-round game-model)
+   :current-trump-suit (:current-trump-suit game-model)
+   :events events
+   :next-player-name (:next-player-id game-model)
+   :possible-cards (get-in game-model [:players player-id :possible-cards])
+   :possible-actions (get-in game-model [:players player-id :possible-actions])
+   :hand-cards (get-in game-model [:players player-id :hand-cards])
+   :scores (:scores game-model)
+   :current-trick-cards (:current-trick-cards game-model)})
 
 (defn- init-model [model-fns {:keys [teams next-player-id players] :as previous-game-model}]
   (if-let [first-model-init (:model-init (first model-fns))]
@@ -43,7 +39,7 @@
                                                             [(init-model (rest active-model-fns) updated-game-model)
                                                              (rest active-model-fns)]
                                                             [updated-game-model active-model-fns])]
-                           (log/info "Action" action "run and model updated to" (util/pretty-print updated-game-model))
+                           (log/info "Action" action "run and model updated to" (util/pretty-print model-for-next-round))
                            (update-match-game-model! model-for-next-round)
                            (when (seq model-fns-for-next-round)
                              (recur model-fns-for-next-round))))))]

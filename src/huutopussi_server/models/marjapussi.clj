@@ -222,6 +222,7 @@
                         :next-player-id starting-player
                         :current-trick-cards []
                         :events []
+                        :phase :marjapussi
                         :phase-ended? false
                         :teams teams
                         :players players}
