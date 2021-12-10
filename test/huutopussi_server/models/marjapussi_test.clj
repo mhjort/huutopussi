@@ -13,7 +13,7 @@
 (def f-card (pick-card deck "K" :hearts))
 (def teams {:Team1 {:players ["a" "c"]}
             :Team2 {:players ["b" "d"]}})
-(def initial-players {"a" {:player-id "a" :player-index 0 :hand-cards [a-card] :possible-cards [] :possible-actions []}
+(def initial-players {"a" {:player-id "a" :player-index 0 :hand-cards [a-card]}
                       "b" {:player-id "b" :player-index 1 :hand-cards [b-card] :possible-cards [] :possible-actions []}
                       "c" {:player-id "c" :player-index 2 :hand-cards [c-card] :possible-cards [] :possible-actions []}
                       "d" {:player-id "d" :player-index 3 :hand-cards [d-card] :possible-cards [] :possible-actions []}})

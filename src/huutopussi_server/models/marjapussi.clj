@@ -44,17 +44,12 @@
     (:player-id next-player)))
 
 (defn calculate-scores [{:keys [events teams]}]
-  (let [team-by-player (reduce-kv (fn [m team {:keys [players]}]
-                                    (let [[p1 p2] players]
-                                      (assoc m p1 team p2 team)))
-                                  {}
-                                  teams)
-        initial-scores (reduce-kv (fn [m team _]
+  (let [initial-scores (reduce-kv (fn [m team _]
                                     (assoc m team 0))
                                   {}
                                   teams)]
     (:scores (reduce (fn [m {:keys [event-type value player]}]
-                       (let [team (get team-by-player player)]
+                       (let [team (get (util/teams-by-player teams) player)]
                          (condp = event-type
                            :card-played (update m :cards conj (:card value))
                            :round-won (let [extra-trick-points (if (:last-round? value)
@@ -226,5 +221,6 @@
                         :phase-ended? false
                         :teams teams
                         :players players}
+                       (assoc-in [:players starting-player :possible-actions] [])
                        (assoc-in [:players starting-player :possible-cards] next-player-hand-cards))]
     (assoc game-model :scores (calculate-scores game-model))))

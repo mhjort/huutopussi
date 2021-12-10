@@ -63,7 +63,8 @@
   (run-action id player {:action-type "play-card"
                          :card-index index}))
 
-(defn run-player-action [id player action-id]
-  (println "Running player action: " action-id "for player" player)
-  (run-action id player {:action-type "run-play-action"
-                         :id action-id}))
+(defn run-player-action [id player action-id action-value]
+  (println "Running player action: " action-id "with value" action-value "for player" player)
+  (run-action id player (cond-> {:action-type "run-play-action"
+                                 :id action-id}
+                          action-value (assoc :value action-value))))

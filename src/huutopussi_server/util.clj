@@ -30,6 +30,13 @@
        (remove #{player-id})
        (first)))
 
+(defn teams-by-player [teams]
+  (reduce-kv (fn [m team {:keys [players]}]
+               (let [[p1 p2] players]
+                 (assoc m p1 team p2 team)))
+             {}
+             teams))
+
 (defn map-vals [f m]
   (reduce-kv #(assoc %1 %2 (f %3)) {} m))
 

@@ -110,11 +110,17 @@
     (let [status (get-status "match-1" "player-1")]
       (is (= {:current-round 0
               :next-player-name "player-1-name"
-              :events {:marjapussi []}
-              :scores {:Team1 0 :Team2 0}
+              :events {:bidding []}
+              :scores {:Team1 {:current 0} :Team2 {:current 0}}
               :teams {:Team1 {:total-score 0 :players ["player-1-name" "player-3-name"]}
                       :Team2 {:total-score 0 :players ["player-2-name" "player-4-name"]}}}
              (select-keys status [:next-player-name :current-round :events :scores :teams])))))
+  (testing "status after setting target score"
+    (run-action "match-1" "player-1" {:action-type "set-target-score" :id "set-target-score" :value 100})
+    (let [status (get-status "match-1" "player-1")]
+      (is (= {:scores {:Team1 {:current 0 :target 100}
+                       :Team2 {:current 0}}}
+             (select-keys status [:scores])))))
   (testing "status after one card played"
     (let [player-a-card (-> (get-status "match-1" "player-1") :hand-cards first)
           _ (is (not (nil? player-a-card)))
@@ -122,7 +128,8 @@
           status (get-status "match-1" "player-1")]
       (is (= {:current-round 0
               :next-player-name "player-2-name"
-              :events {:marjapussi [{:event-type "card-played"
+              :events {:bidding []
+                       :marjapussi [{:event-type "card-played"
                                      :player "player-1-name"
                                      :value {:card player-a-card}}]}}
              (select-keys status [:next-player-name :current-round :events])))))
