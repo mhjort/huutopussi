@@ -23,6 +23,7 @@
     (-> game-model
       (assoc-in [:teams player-team :target-score] target-score)
       (assoc-in [:players player-id :possible-actions] [])
+      (update :events conj {:event-type :target-score-set :player player-id :value target-score})
       (assoc :phase-ended? true))))
 
 (def possible-target-scores (range 50 420 5))

@@ -88,7 +88,7 @@
         (re-frame/dispatch [:game-status {:cards hand-cards
                                           :possible-cards possible-cards
                                           :possible-actions possible-actions
-                                          :events (:marjapussi events)
+                                          :events events
                                           :scores scores
                                           :teams teams
                                           :phase phase
@@ -206,6 +206,7 @@
                     "viimeisen tikin"
                     "tikin")]
     (case event-type
+      "target-score-set" (str player " asetti tiimin tavoitteeksi " value " pistettä")
       "card-played" (str player " löi " (format-card card :genitive))
       "round-won" (str player " vei " trick-str " " (format-card card :adessive))
       "trump-declared" (str player " teki " (get suits-fi (:suit value)) "valtin")
@@ -219,12 +220,14 @@
       "asked-for-trump" (str player " kysyi onko tiimikaverilla valttia"))))
 
 (defn events-view []
-  (let [events @(re-frame/subscribe [:events])]
-    (when events
+  (let [events @(re-frame/subscribe [:events])
+        ;TODO Maybe it would be better to have different views for different phases?
+        flatted-events (concat (:bidding events) (:marjapussi events))]
+    (when (seq flatted-events)
       [:section#events
        [:h3 "Pelitapahtumat"]
        [:ul
-        (for [event (take 3 (reverse events))]
+        (for [event (take 3 (reverse flatted-events))]
           ^{:key event} [:li (format-event event)])]])))
 
 (defn home []

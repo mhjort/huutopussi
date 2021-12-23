@@ -128,7 +128,9 @@
           status (get-status "match-1" "player-1")]
       (is (= {:current-round 0
               :next-player-name "player-2-name"
-              :events {:bidding []
+              :events {:bidding [{:event-type "target-score-set"
+                                  :player "player-1-name"
+                                  :value 100}]
                        :marjapussi [{:event-type "card-played"
                                      :player "player-1-name"
                                      :value {:card player-a-card}}]}}
@@ -151,7 +153,10 @@
                                     :phase :phase1
                                     :phase-ended? false})
                      :model-tick (fn [game-model _]
-                                   (assoc game-model :phase-ended? true :next-player-id "player-2"))}
+                                   (assoc game-model
+                                          :phase-ended? true
+                                          :next-player-id "player-2"
+                                          :events [{:event-type :phase1-event}]))}
                     {:model-init (fn [_ starting-player-id _]
                                    (swap! started-phase2-rounds inc)
                                    {:next-player-id starting-player-id
@@ -163,6 +168,7 @@
                      :model-tick (fn [game-model {:keys [id]}]
                                    (-> game-model
                                        (update-in [:scores :Team1] inc)
+                                       (assoc :events [{:event-type :phase2-event}])
                                        (assoc :phase-ended? (= "end-game" id))))}]
                    {:time-before-starting-next-round 10})
       (Thread/sleep 100)
@@ -173,10 +179,16 @@
       (is (= 1 @started-phase1-rounds))
       (is (= 0 @started-phase2-rounds))
       (run-action "match-1" "player-1" {:id "set-target-score" :action-type :dummy})
+      (is (= {:phase1 [{:event-type "phase1-event"}]
+              :phase2 nil}
+             (:events (get-status "match-1" "player-1"))))
       (is (= 1 @started-phase1-rounds))
       (is (= 1 @started-phase2-rounds))
       (run-action "match-1" "player-2" {:id "continue-game" :action-type :dummy})
       (is (= 1 @started-phase2-rounds))
+      (is (= {:phase1 [{:event-type "phase1-event"}]
+              :phase2 [{:event-type "phase2-event"}]}
+             (:events (get-status "match-1" "player-1"))))
       (run-action "match-1" "player-2" {:id "end-game" :action-type :dummy})
       (is (= 2 @started-phase1-rounds))
       (is (= {:Team1 {:total-score 2 :players ["player-1-name" "player-3-name"]}

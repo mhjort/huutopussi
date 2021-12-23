@@ -49,7 +49,7 @@
             :phase-ended? true
             :teams (assoc-in teams [:Team1 :target-score] 60)
             :scores {:Team1 0 :Team2 0}
-            :events []
+            :events [{:event-type :target-score-set :player "a" :value 60}]
             :players {"a" {:player-id "a"
                            :player-index 0
                            :hand-cards [a-card]

@@ -47,8 +47,10 @@
                          (let [{:keys [phase-ended?] :as updated-game-model} (model-tick game-model action)
                                [model-for-next-round
                                 model-fns-for-next-round] (if phase-ended?
-                                                            [(init-model (rest active-model-fns) updated-game-model)
-                                                             (rest active-model-fns)]
+                                                            (do
+                                                              (update-match-game-model! updated-game-model)
+                                                              [(init-model (rest active-model-fns) updated-game-model)
+                                                               (rest active-model-fns)])
                                                             [updated-game-model active-model-fns])]
                            (log/info "Action" action "run and model updated to" (util/pretty-print model-for-next-round))
                            (update-match-game-model! model-for-next-round)
