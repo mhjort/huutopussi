@@ -15,8 +15,6 @@
 
 (println "Autoplay?" auto-play?)
 
-(defn multiply [a b] (* a b))
-
 (def image-path "/img/cards")
 
 (def suits-fi
