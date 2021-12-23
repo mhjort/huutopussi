@@ -1,5 +1,7 @@
 # huutopussi
 
+[Build Status](https://github.com/mhjort/huutopussi/.github/workflows/clojure.yml/badge.svg)
+
 Multiplayer (4 players) card game: https://fi.wikipedia.org/wiki/Huutopussi
 
 This repository contains both client and server for running the code.
