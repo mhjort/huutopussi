@@ -22,10 +22,10 @@
  (let [player-team (get (util/teams-by-player teams) player-id)]
     (-> game-model
       (assoc-in [:teams player-team :target-score] target-score)
+      (assoc-in [:players player-id :possible-actions] [])
       (assoc :phase-ended? true))))
 
-
-(set-target-score {:teams teams} "a" 50)
+(def possible-target-scores (range 50 420 5))
 
 (defn tick [game-model {:keys [action-type player-id value]}]
   (case action-type
@@ -35,7 +35,7 @@
   {:teams teams
    :players (assoc-in players [starting-player :possible-actions] [{:id "set-target-score"
                                                                     :action-type :set-target-score
-                                                                    :possible-values (range 50 420 5)}])
+                                                                    :possible-values possible-target-scores }])
    :next-player-id starting-player
    ;TODO Maybe this should not be set in bidding phase?
    :scores (reduce-kv (fn [m team _]
@@ -47,5 +47,3 @@
    :events []
    :phase :bidding
    :phase-ended? false})
-
-(init teams "a" initial-players)
