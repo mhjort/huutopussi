@@ -1,6 +1,6 @@
 # huutopussi
 
-[Build Status](https://github.com/mhjort/huutopussi/actions/workflows/clojure.yml/badge.svg)
+![Build Status](https://github.com/mhjort/huutopussi/actions/workflows/clojure.yml/badge.svg)
 
 Multiplayer (4 players) card game: https://fi.wikipedia.org/wiki/Huutopussi
 
