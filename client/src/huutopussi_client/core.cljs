@@ -107,39 +107,46 @@
   (re-frame/dispatch [:player-action {:id id :value value}])
   false)
 
+(defn- show-action-selection-box [{:keys [possible-values id]} title]
+  ^{:key id}[:div [:span title]
+             [:select {:defaultValue "Valitse"
+                       :on-change #(run-action id (js/parseInt (.. % -target -value)))}
+              [:option {:disabled true} "Valitse"]
+              (for [possible-value possible-values]
+                ^{:key possible-value}[:option {:value possible-value} possible-value])]])
+
+(defn- show-action-trigger [{:keys [id]} title]
+  ^{:key id}[:span " "
+             [:a {:href "#"
+                  :on-click #(run-action id nil)}
+              title]])
+
 (defn- show-possible-trumps [{:keys [phase possible-actions]}]
   (when (= "marjapussi" phase)
-    (for [{:keys [action-type suit target-player id]} possible-actions]
+    (for [{:keys [action-type suit target-player] :as action} possible-actions]
       (case action-type
-        "declare-trump" ^{:key suit}[:span " "
-                                     [:a {:href "#"
-                                          :on-click #(run-action id nil)}
-                                      (str "Tee " (get suits-fi suit) "valtti!")]]
-        "ask-for-half-trump" ^{:key suit} [:span " "
-                                           [:a {:href "#"
-                                                :on-click #(run-action id nil)}
-                                            (str "Kysy onko pelaajalla " target-player " " (get suits-fi suit) "puolikasta!")]]
-        "ask-for-trump" ^{:key target-player} [:span " "
-                                               [:a {:href "#"
-                                                    :on-click #(run-action id nil)}
-                                                (str "Kysy onko pelaajalla " target-player " valtti!")]]))))
+        "declare-trump" (show-action-trigger action
+                                             (str "Tee " (get suits-fi suit) "valtti!"))
+        "ask-for-half-trump" (show-action-trigger action
+                                                  (str "Kysy onko pelaajalla " target-player " " (get suits-fi suit) "puolikasta!"))
+        "ask-for-trump" (show-action-trigger action
+                                             (str "Kysy onko pelaajalla " target-player " valtti!"))))))
 
 (defn- show-possible-bidding-actions [{:keys [phase possible-actions]}]
   (when (= "bidding" phase)
-    (for [{:keys [action-type possible-values id]} possible-actions]
+    (for [{:keys [action-type] :as action} possible-actions]
       (case action-type
-        "set-target-score" ^{:key id}[:div [:span "Aseta jaon pistemäärätavoite"]
-                                      [:select {:defaultValue "Valitse"
-                                                :on-change #(run-action id (js/parseInt (.. % -target -value)))}
-                                        [:option {:disabled true} "Valitse"]
-                                       (for [possible-value possible-values]
-                                         ^{:key possible-value}[:option {:value possible-value} possible-value])
-                                       ]]))))
+        "place-bid" (show-action-selection-box action "Huuda valitsemasi pistemäärä!")
+        "fold" (show-action-trigger action "Luovuta huuto")
+        "set-target-score" (show-action-selection-box action "Aseta jaon pistemäärätavoite")))))
 
-(defn- show-next-player [player-name game]
-  (if (= player-name (:next-player-name game))
-    [:b "Sinun vuorosi lyödä kortti"]
-    (str "Odottaa pelaajaa " (:next-player-name game))))
+(defn- show-next-player [player-name {:keys [next-player-name phase]}]
+  (if (= player-name next-player-name)
+    (let [your-turn-text (case phase
+                           "bidding" "Sinun vuorosi"
+                           "marjapussi" "Sinun vuorosi lyödä kortti")]
+      [:b your-turn-text])
+    (str "Odottaa pelaajaa " next-player-name)))
 
 (defn- format-card [{:keys [text suit]} grammatical-case]
   (case grammatical-case
@@ -204,6 +211,8 @@
                     "viimeisen tikin"
                     "tikin")]
     (case event-type
+      "bid-placed" (str player " huusi pistemäärän " value)
+      "folded" (str player " luovutti huudon")
       "target-score-set" (str player " asetti tiimin tavoitteeksi " value " pistettä")
       "card-played" (str player " löi " (format-card card :genitive))
       "round-won" (str player " vei " trick-str " " (format-card card :adessive))

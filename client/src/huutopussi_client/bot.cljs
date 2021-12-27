@@ -14,14 +14,27 @@
     (println "BOT: Playing action" id "with first possible value" first-possible-value)
     [:player-action {:id id :value first-possible-value}]))
 
+(defn- choose-bidding-action [possible-actions]
+  ;Bot folds always if possible
+  (if-let [fold-action (first (filter #(= "fold" (:id %)) possible-actions))]
+    [:player-action fold-action]
+    (run-action-with-first-possible-value (first possible-actions))))
+
 (defn choose-bot-action [{:keys [phase hand-cards possible-cards possible-actions]}]
   (case phase
-    "bidding" (when-let [first-possible-action (first possible-actions)]
-                (run-action-with-first-possible-value first-possible-action))
+    "bidding" (choose-bidding-action possible-actions)
     "marjapussi" (when (seq possible-cards)
                    (play-first-possible-card hand-cards possible-cards))))
 
 (comment
+  ;Starting player
+  (choose-bot-action {:phase "bidding" :possible-actions [{:id "place-bid"
+                                                           :possible-values [50 100]}]})
+  ;2-4tht player
+  (choose-bot-action {:phase "bidding" :possible-actions [{:id "place-bid"
+                                                           :possible-values [50 100]}
+                                                          {:id "fold"}]})
+  ;Player who won the bidding
   (choose-bot-action {:phase "bidding" :possible-actions [{:id "set-target-score"
                                                            :possible-values [50 100]}]})
   )
