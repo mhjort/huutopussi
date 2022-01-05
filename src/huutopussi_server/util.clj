@@ -23,6 +23,14 @@
                   (map-indexed vector player-ids)
                   cards-per-player))))
 
+(defn select-next-player-id [current-index players]
+  (let [possible-index (inc current-index)
+        next-player-index (if (= (count players) possible-index)
+                            0
+                            possible-index)
+        next-player (first (filter #(= next-player-index (:player-index %)) (vals players)))]
+    (:player-id next-player)))
+
 (defn team-mate-for-player [player-id teams]
   (->> (filter #(some #{player-id} (:players %)) (vals teams))
        (first)

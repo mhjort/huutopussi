@@ -1,10 +1,6 @@
 (ns huutopussi-client.core-test
     (:require
-     [cljs.test :refer-macros [deftest is testing]]
-     [huutopussi-client.core :refer [multiply]]))
+     [cljs.test :refer-macros [deftest is]]))
 
-(deftest multiply-test
-  (is (= (* 1 2) (multiply 1 2))))
-
-(deftest multiply-test-2
-  (is (= (* 75 10) (multiply 10 75))))
+(deftest one-plus-one
+  (is (= 2 (+ 1 1))))

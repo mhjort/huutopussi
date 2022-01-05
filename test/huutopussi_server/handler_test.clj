@@ -115,7 +115,11 @@
               :teams {:Team1 {:total-score 0 :players ["player-1-name" "player-3-name"]}
                       :Team2 {:total-score 0 :players ["player-2-name" "player-4-name"]}}}
              (select-keys status [:next-player-name :current-round :events :scores :teams])))))
-  (testing "status after setting target score"
+  (testing "status after bidding and setting target score"
+    (run-action "match-1" "player-1" {:action-type "place-bid" :id "place-bid" :value 50})
+    (run-action "match-1" "player-2" {:action-type "fold" :id "fold"})
+    (run-action "match-1" "player-3" {:action-type "fold" :id "fold"})
+    (run-action "match-1" "player-4" {:action-type "fold" :id "fold"})
     (run-action "match-1" "player-1" {:action-type "set-target-score" :id "set-target-score" :value 100})
     (let [status (get-status "match-1" "player-1")]
       (is (= {:scores {:Team1 {:current 0 :target 100}
@@ -128,7 +132,16 @@
           status (get-status "match-1" "player-1")]
       (is (= {:current-round 0
               :next-player-name "player-2-name"
-              :events {:bidding [{:event-type "target-score-set"
+              :events {:bidding [{:event-type "bid-placed"
+                                  :player "player-1-name"
+                                  :value 50}
+                                 {:event-type "folded"
+                                  :player "player-2-name"}
+                                 {:event-type "folded"
+                                  :player "player-3-name"}
+                                 {:event-type "folded"
+                                  :player "player-4-name"}
+                                 {:event-type "target-score-set"
                                   :player "player-1-name"
                                   :value 100}]
                        :marjapussi [{:event-type "card-played"

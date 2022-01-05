@@ -35,14 +35,6 @@
                                trump-suit-cards)
       :else player-cards)))
 
-(defn- select-next-player-id [current-index players]
-  (let [possible-index (inc current-index)
-        next-player-index (if (= (count players) possible-index)
-                            0
-                            possible-index)
-        next-player (first (filter #(= next-player-index (:player-index %)) (vals players)))]
-    (:player-id next-player)))
-
 (defn calculate-scores [{:keys [events teams]}]
   (let [initial-scores (reduce-kv (fn [m team _]
                                     (assoc m team 0))
@@ -153,7 +145,7 @@
                                   (assoc :next-player-id win-player)
                                   (assoc-in [:players win-player :possible-cards] (possible-cards-for-next-player win-player [])))]
         (assoc-in trick-ended-model [:players win-player :possible-actions] (possible-actions-for-player win-player trick-ended-model)))
-      (let [next-player-id (select-next-player-id (get-in updated-game-model [:players next-player-id :player-index])
+      (let [next-player-id (util/select-next-player-id (get-in updated-game-model [:players next-player-id :player-index])
                                                   (:players updated-game-model))]
         (-> updated-game-model
             (assoc :phase-ended? phase-ended?)
