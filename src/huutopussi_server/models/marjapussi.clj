@@ -164,17 +164,20 @@
                                                                                            updated-game-model))
         (assoc-in [:players next-player-id :possible-cards] (possible-cards [] hand-cards suit)))))
 
-(defn- ask-for-trump [{:keys [next-player-id teams] :as game-model} {:keys [player-id]}]
+(defn- ask-for-trump [{:keys [next-player-id teams events] :as game-model} {:keys [player-id]}]
   (let [target-player (util/team-mate-for-player player-id teams)
         player-hand-cards (get-in game-model [:players target-player :hand-cards])
-        possible-trump (first (possible-trumps player-hand-cards))]
+        possible-trump (first (remove (set (already-declared-trump-suits events))
+                                      (possible-trumps player-hand-cards)))]
     (cond-> game-model
       true (update :events conj {:event-type :asked-for-trump
                                  :player next-player-id
                                  :value {:target-player target-player}})
       true (update :events conj {:event-type :answered-to-trump
                                  :player target-player
-                                 :value {:answer (not (nil? possible-trump)) :suit possible-trump}})
+                                 :value (if possible-trump
+                                          {:answer true :suit possible-trump}
+                                          {:answer false})})
       true (assoc-in [:players next-player-id :possible-actions] [])
       possible-trump (declare-trump {:suit possible-trump
                                      :player-id target-player}))))
