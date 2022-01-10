@@ -159,52 +159,6 @@
                              teams)]
     (string/join " ja " formatted-teams)))
 
-(defn- show-match-status []
-  (condp = @(re-frame/subscribe [:state-change])
-    :finding-match [:p (str "Etsitään peliä pelaajalle " @(re-frame/subscribe [:player-name]))]
-    :matched [:p (str "Löytyi peli pelaajille: " (map :name (:players @(re-frame/subscribe [:match]))))]
-    :started (let [player-name @(re-frame/subscribe [:player-name])
-                   game @(re-frame/subscribe [:game])]
-               (list
-                ^{:key "match-info"} [:section#match-info
-                 [:p (show-teams (:teams game))]
-                 [:h3 "Jako"]
-                 [:p (:current-round game) ". tikki, jaon pisteet: " (:scores game)
-                  (when (:current-trump-suit game) (list ", " (get suits-fi (:current-trump-suit game)) "valtti"))]
-                 [:p (show-next-player player-name game) (show-possible-trumps game)]
-                 (show-possible-bidding-actions game)]
-                ^{:key "main"} [:main
-                 [:h3 "Käsikorttisi"]
-                 [:ul#player-hand
-                  (for [[index card] (doall (map-indexed vector (:cards game)))]
-                    ^{:key (str "hand-" (format-card card :genitive))} [:li
-                                                                        [:img {:on-click #(re-frame/dispatch [:player-card index])
-                                                                               :src (card-url card)
-                                                                               :width "170px"
-                                                                               :height "auto"}]])]
-                 [:h3 "Tikin kortit"]
-                 [:ul#trick-cards {:style {:display "flex"}}
-                  (for [{:keys [card player]} (:trick-cards game)]
-                    ^{:key (str "trick-" (format-card card :genitive))}[:li {:style {:width "170px"}}
-                                                                        [:div player]
-                                                                        [:img {:src (card-url card)
-                                                                               :width "100%"
-                                                                               :height "auto"}]])]]))))
-
-(defn- show-match-start []
-  (when auto-play?
-    (re-frame/dispatch [:start-matchmake (str "bot-" (rand-int 10000))]))
-  (let [player-name (atom "")]
-    (list
-      [:div#startup-form
-       [:label "Syötä nimesi "]
-       [:input {:type "text"
-                :on-change #(reset! player-name (-> % .-target .-value))}]
-       " "
-       [:button {:type "submit" :value "Käynnistä peli!" :on-click #(re-frame/dispatch [:start-matchmake @player-name])} "Käynnistä peli!"]]
-      [:div
-       [:a {:href "?auto-play=true"} "Käynnistä botti"]])))
-
 (defn- format-event [{:keys [event-type player value]}]
   (let [{:keys [card last-round? answer]} value
         trick-str (if last-round?
@@ -226,16 +180,84 @@
                                                           "ei löydy valttia"))
       "asked-for-trump" (str player " kysyi onko tiimikaverilla valttia"))))
 
-(defn events-view []
+(defn- events-view [phase]
   (let [events @(re-frame/subscribe [:events])
         ;TODO Maybe it would be better to have different views for different phases?
-        flatted-events (concat (:bidding events) (:marjapussi events))]
-    (when (seq flatted-events)
-      [:section#events
-       [:h3 "Pelitapahtumat"]
-       [:ul
-        (for [event (take 3 (reverse flatted-events))]
-          ^{:key event} [:li (format-event event)])]])))
+        phase-events (if phase
+                       ((keyword phase) events)
+                       [])]
+    ^{:key "events"} [:section#events
+                      [:h3 "Pelitapahtumat"]
+                      [:ul
+                       (for [event (take 3 (reverse phase-events))]
+                         ^{:key event} [:li (format-event event)])]]))
+
+(defn- show-game-scores [scores]
+  (reduce (fn [m [team team-score]]
+            (let [{:keys [current target]} team-score
+                  target-str (if target
+                               (str "/" target)
+                               "")]
+              (str m " " (name team) ": " current target-str)))
+          ""
+          scores))
+
+(defn- show-match-view []
+  (let [player-name @(re-frame/subscribe [:player-name])
+        {:keys [scores
+                current-trump-suit
+                cards
+                trick-cards
+                phase
+                teams
+                current-round] :as game} @(re-frame/subscribe [:game])]
+    (list
+     ^{:key "match-info"} [:section#match-info
+                           [:p (show-teams teams)]
+                           [:h3 (str "Jako (" current-round ". tikki)")]
+                           [:p (str "Jaon pisteet:" (show-game-scores scores))
+                            (when current-trump-suit (list ", " (get suits-fi current-trump-suit game) "valtti"))]
+                           [:p (show-next-player player-name game) (show-possible-trumps game)]
+                           (show-possible-bidding-actions game)]
+     ^{:key "main"} [:main
+                     [:h3 "Käsikorttisi"]
+                     [:ul#player-hand
+                      (for [[index card] (doall (map-indexed vector cards))]
+                        ^{:key (str "hand-" (format-card card :genitive))} [:li
+                                                                            [:img {:on-click #(re-frame/dispatch [:player-card index])
+                                                                                   :src (card-url card)
+                                                                                   :width "170px"
+                                                                                   :height "auto"}]])]
+                     [:h3 "Tikin kortit"]
+                     [:ul#trick-cards {:style {:display "flex"}}
+                      (for [{:keys [card player]} trick-cards]
+                        ^{:key (str "trick-" (format-card card :genitive))}[:li {:style {:width "170px"}}
+                                                                            [:div player]
+                                                                            [:img {:src (card-url card)
+                                                                                   :width "100%"
+                                                                                   :height "auto"}]])]]
+     (events-view phase)
+     )))
+
+(defn- show-match-status []
+  (condp = @(re-frame/subscribe [:state-change])
+    :finding-match [:p (str "Etsitään peliä pelaajalle " @(re-frame/subscribe [:player-name]))]
+    :matched [:p (str "Löytyi peli pelaajille: " (map :name (:players @(re-frame/subscribe [:match]))))]
+    :started (show-match-view)))
+
+(defn- show-match-start []
+  (when auto-play?
+    (re-frame/dispatch [:start-matchmake (str "bot-" (rand-int 10000))]))
+  (let [player-name (atom "")]
+    (list
+      [:div#startup-form
+       [:label "Syötä nimesi "]
+       [:input {:type "text"
+                :on-change #(reset! player-name (-> % .-target .-value))}]
+       " "
+       [:button {:type "submit" :value "Käynnistä peli!" :on-click #(re-frame/dispatch [:start-matchmake @player-name])} "Käynnistä peli!"]]
+      [:div
+       [:a {:href "?auto-play=true"} "Käynnistä botti"]])))
 
 (defn home []
   (let [state (re-frame/subscribe [:state-change])]
@@ -243,8 +265,7 @@
      [:h1 "Huutopussi"]
      (if (= :enter-name @state)
        (show-match-start)
-       (show-match-status))
-     (events-view)]))
+       (show-match-status))]))
 
 (defn mount [el start-matchmake?]
   (when start-matchmake?
