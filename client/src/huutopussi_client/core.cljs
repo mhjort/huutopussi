@@ -250,14 +250,16 @@
     (re-frame/dispatch [:start-matchmake (str "bot-" (rand-int 10000))]))
   (let [player-name (atom "")]
     (list
-      [:div#startup-form
-       [:label "Syötä nimesi "]
-       [:input {:type "text"
-                :on-change #(reset! player-name (-> % .-target .-value))}]
-       " "
-       [:button {:type "submit" :value "Käynnistä peli!" :on-click #(re-frame/dispatch [:start-matchmake @player-name])} "Käynnistä peli!"]]
-      [:div
-       [:a {:href "?auto-play=true"} "Käynnistä botti"]])))
+     ^{:key "startup-form"} [:div#startup-form
+                             [:label "Syötä nimesi "]
+                             [:input {:type "text"
+                                      :on-change #(reset! player-name (-> % .-target .-value))}]
+                             " "
+                             [:button {:type "submit"
+                                       :value "Käynnistä peli!"
+                                       :on-click #(re-frame/dispatch [:start-matchmake @player-name])} "Käynnistä peli!"]]
+     ^{:key "autoplay"}[:div
+                        [:a {:href "?auto-play=true"} "Käynnistä botti"]])))
 
 (defn home []
   (let [state (re-frame/subscribe [:state-change])]
