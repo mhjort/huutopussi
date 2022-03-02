@@ -59,7 +59,7 @@
                          players
                          starting-players
                          {:keys [time-before-starting-next-round]
-                          :or {time-before-starting-next-round 15000}}
+                          :or {time-before-starting-next-round 15000} :as options}
                          model-fns]
   (let [poison-pill (chan)
         update-game-model! (fn [game-model]
@@ -72,7 +72,8 @@
                                                             :cards-per-player shuffled-cards
                                                             :get-match-game-model #(get-match matches id)
                                                             :update-match-game-model! update-game-model!
-                                                            :model-fns model-fns})
+                                                            :model-fns model-fns
+                                                            :options options})
             _ (swap! matches #(update % id assoc :status :started :players players))
             [_ ch] (alts! [game-ended poison-pill])]
         (if (= poison-pill ch)

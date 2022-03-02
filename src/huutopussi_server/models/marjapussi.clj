@@ -206,16 +206,16 @@
                         :ask-for-trump (ask-for-trump game-model action))]
     (assoc updated-model :scores (calculate-scores updated-model))))
 
-(defn init [teams starting-player players]
-  (let [next-player-hand-cards (get-in players [starting-player :hand-cards])
+(defn init [{:keys [teams next-player-id players]} _]
+  (let [next-player-hand-cards (get-in players [next-player-id :hand-cards])
         game-model (-> {:current-round 0
-                        :next-player-id starting-player
+                        :next-player-id next-player-id
                         :current-trick-cards []
                         :events []
                         :phase :marjapussi
                         :phase-ended? false
                         :teams teams
                         :players players}
-                       (assoc-in [:players starting-player :possible-actions] [])
-                       (assoc-in [:players starting-player :possible-cards] next-player-hand-cards))]
+                       (assoc-in [:players next-player-id :possible-actions] [])
+                       (assoc-in [:players next-player-id :possible-cards] next-player-hand-cards))]
     (assoc game-model :scores (calculate-scores game-model))))

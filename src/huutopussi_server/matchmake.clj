@@ -57,7 +57,8 @@
     (when (every? :ready-to-start?
                   (vals (get-in updated-matches [id :players])))
       ;TODO First model should come somewhere else
-      (match/start matches id match/initial-model-fns {})))
+      ;TODO options should come somewhere else
+      (match/start matches id match/initial-model-fns {:number-of-cards-swapped 3})))
   (get-match matches id))
 
 

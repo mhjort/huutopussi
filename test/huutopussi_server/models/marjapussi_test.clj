@@ -19,7 +19,7 @@
                       "d" {:player-id "d" :player-index 3 :hand-cards [d-card] :possible-cards [] :possible-actions []}})
 
 (deftest after-init
-  (let [game-model (model/init teams "a" initial-players)]
+  (let [game-model (model/init {:teams teams :next-player-id "a" :players initial-players} {})]
     (is (= {:current-round 0
             :next-player-id "a"
             :current-trick-cards []
@@ -35,9 +35,7 @@
            game-model))))
 
 (deftest one-card-played
-  (let [game-model (-> (model/init teams
-                                   "a"
-                                   initial-players)
+  (let [game-model (-> (model/init {:teams teams :next-player-id "a" :players initial-players} {})
                        (model/tick {:action-type :play-card
                                     :card a-card}))]
     (is (= {:current-round 0
@@ -55,9 +53,10 @@
            game-model))))
 
 (deftest one-round-played
-  (let [game-model (-> (model/init teams
-                                   "a"
-                                   (assoc-in initial-players ["a" :hand-cards] [a-card e-card f-card]))
+  (let [game-model (-> (model/init {:teams teams
+                                    :next-player-id "a"
+                                    :players (assoc-in initial-players ["a" :hand-cards] [a-card e-card f-card])}
+                                   {})
                        (model/tick {:action-type :play-card :card a-card})
                        (model/tick {:action-type :play-card :card b-card})
                        (model/tick {:action-type :play-card :card c-card})
@@ -109,15 +108,12 @@
                     (assoc-in ["b" :hand-cards] [d6-card d7-card])
                     (assoc-in ["c" :hand-cards] [da-card c6-card])
                     (assoc-in ["d" :hand-cards] [h6-card h7-card]))
-        game-model (-> (model/init teams
-                                   "a"
-                                   players)
+        game-model (-> (model/init {:teams teams :next-player-id "a" :players players} {})
                        (model/tick {:action-type :play-card :card ca-card})
                        (model/tick {:action-type :play-card :card d6-card})
                        (model/tick {:action-type :play-card :card c6-card})
                        (model/tick {:action-type :play-card :card h6-card})
-                       (model/tick {:action-type :declare-trump :suit :hearts :player-id "a"})
-                       )]
+                       (model/tick {:action-type :declare-trump :suit :hearts :player-id "a"}))]
     (testing "Winwing player can declare trump from hand cards"
       (is (= :hearts (:current-trump-suit game-model))))
     (testing "When team player asks for trump it cannot be made second time"
@@ -126,8 +122,7 @@
                               (model/tick {:action-type :play-card :card d7-card})
                               (model/tick {:action-type :play-card :card da-card})
                               (model/tick {:action-type :play-card :card h7-card})
-                              (model/tick {:action-type :ask-for-trump :player-id "c"})
-                              )]
+                              (model/tick {:action-type :ask-for-trump :player-id "c"}))]
         (is (= {:event-type :answered-to-trump
                 :player "a"
                 :value {:answer false}} (last (:events updated-model))))))))
@@ -147,7 +142,10 @@
 
 (defn- play-full-game []
   (let [shuffled-cards (deck/same-suit-for-four-players (deck/card-deck))
-        game-model (model/init teams "a" (util/generate-players teams shuffled-cards))
+        game-model (model/init {:teams teams
+                                :next-player-id "a"
+                                :players (util/generate-players teams shuffled-cards)}
+                               {})
         play-first-possible-card (fn [{:keys [players next-player-id] :as game-model}]
                                    (let [card-to-play (first (get-in players [next-player-id :possible-cards]))]
                                      (model/tick game-model {:action-type :play-card :card card-to-play})))]
