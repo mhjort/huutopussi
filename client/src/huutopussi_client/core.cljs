@@ -195,7 +195,7 @@
     ^{:key "events"} [:section#events
                       [:h3 "Pelitapahtumat"]
                       [:ul
-                       (for [event (take 3 (reverse phase-events))]
+                       (for [event (take 4 (reverse phase-events))]
                          ^{:key event} [:li (format-event event)])]]))
 
 (defn- show-game-scores [scores]
