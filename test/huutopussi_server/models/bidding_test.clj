@@ -287,7 +287,8 @@
                          {:event-type :folded :player "b"}
                          {:event-type :folded :player "c"}
                          {:event-type :folded :player "d"}
-                         {:event-type :bid-won :player "a" :value 60}]
+                         {:event-type :bid-won :player "a" :value 60}
+                         {:event-type :cards-given :player "c" :value 1}]
                 :players {"a" {:player-id "a"
                                :player-index 0
                                :hand-cards [a-card c-card]
@@ -324,7 +325,9 @@
                              {:event-type :folded :player "b"}
                              {:event-type :folded :player "c"}
                              {:event-type :folded :player "d"}
-                             {:event-type :bid-won :player "a" :value 60}]
+                             {:event-type :bid-won :player "a" :value 60}
+                             {:event-type :cards-given :player "c" :value 1}
+                             {:event-type :cards-given :player "a" :value 1}]
                     :players {"a" {:player-id "a"
                                    :player-index 0
                                    :hand-cards [c-card]
@@ -362,6 +365,8 @@
                                  {:event-type :folded :player "c"}
                                  {:event-type :folded :player "d"}
                                  {:event-type :bid-won :player "a" :value 60}
+                                 {:event-type :cards-given :player "c" :value 1}
+                                 {:event-type :cards-given :player "a" :value 1}
                                  {:event-type :target-score-set :player "a" :value 60}]
                         :players {"a" {:player-id "a"
                                        :player-index 0

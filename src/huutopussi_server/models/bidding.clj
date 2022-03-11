@@ -106,7 +106,8 @@
         (assoc :next-player-id next-player-id)
         ;TODO sort cards again somewhere
         (assoc-in [:players target-player-id :hand-cards] target-player-hand-cards)
-        (assoc-in [:players next-player-id :possible-actions] possible-actions))))
+        (assoc-in [:players next-player-id :possible-actions] possible-actions)
+        (update :events conj {:event-type :cards-given :player player-id :value (count card-indexes-to-give)}))))
 
 (defn tick [game-model {:keys [action-type player-id value]}]
   (case action-type

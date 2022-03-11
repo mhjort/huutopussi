@@ -146,6 +146,12 @@
                                  {:event-type "bid-won"
                                   :player "player-1-name"
                                   :value 50}
+                                 {:event-type "cards-given"
+                                  :player "player-3-name"
+                                  :value 1}
+                                 {:event-type "cards-given"
+                                  :player "player-1-name"
+                                  :value 1}
                                  {:event-type "target-score-set"
                                   :player "player-1-name"
                                   :value 100}]
