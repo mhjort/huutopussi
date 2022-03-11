@@ -104,7 +104,7 @@
 (deftest playing-real-match
   (reset! matches {"match-1" match-with-four-players})
   (testing "status when match has started"
-    (match/start matches "match-1" match/initial-model-fns {})
+    (match/start matches "match-1" match/initial-model-fns {:number-of-cards-swapped 1})
     (Thread/sleep 100)
     (is (= :started (:status (get @matches "match-1"))))
     (let [status (get-status "match-1" "player-1")]
@@ -120,6 +120,8 @@
     (run-action "match-1" "player-2" {:action-type "fold" :id "fold"})
     (run-action "match-1" "player-3" {:action-type "fold" :id "fold"})
     (run-action "match-1" "player-4" {:action-type "fold" :id "fold"})
+    (run-action "match-1" "player-3" {:action-type "give-cards" :id "give-cards" :value [0]})
+    (run-action "match-1" "player-1" {:action-type "give-cards" :id "give-cards" :value [0]})
     (run-action "match-1" "player-1" {:action-type "set-target-score" :id "set-target-score" :value 100})
     (let [status (get-status "match-1" "player-1")]
       (is (= {:scores {:Team1 {:current 0 :target 100}
@@ -141,6 +143,15 @@
                                   :player "player-3-name"}
                                  {:event-type "folded"
                                   :player "player-4-name"}
+                                 {:event-type "bid-won"
+                                  :player "player-1-name"
+                                  :value 50}
+                                 {:event-type "cards-given"
+                                  :player "player-3-name"
+                                  :value 1}
+                                 {:event-type "cards-given"
+                                  :player "player-1-name"
+                                  :value 1}
                                  {:event-type "target-score-set"
                                   :player "player-1-name"
                                   :value 100}]
@@ -160,9 +171,9 @@
     (testing "when game ends total score is updated and new game is started"
       (match/start matches
                    "match-1"
-                   [{:model-init (fn [_ starting-player-id _]
+                   [{:model-init (fn [{:keys [next-player-id]} _]
                                    (swap! started-phase1-rounds inc)
-                                   {:next-player-id starting-player-id
+                                   {:next-player-id next-player-id
                                     :phase :phase1
                                     :phase-ended? false})
                      :model-tick (fn [game-model _]
@@ -170,9 +181,9 @@
                                           :phase-ended? true
                                           :next-player-id "player-2"
                                           :events [{:event-type :phase1-event}]))}
-                    {:model-init (fn [_ starting-player-id _]
+                    {:model-init (fn [{:keys [next-player-id]} _]
                                    (swap! started-phase2-rounds inc)
-                                   {:next-player-id starting-player-id
+                                   {:next-player-id next-player-id
                                     :scores {:Team1 0 :Team2 0}
                                     :players {"player-2" {:possible-actions [{:id "continue-game"}
                                                                              {:id "end-game"}]}}
@@ -183,7 +194,7 @@
                                        (update-in [:scores :Team1] inc)
                                        (assoc :events [{:event-type :phase2-event}])
                                        (assoc :phase-ended? (= "end-game" id))))}]
-                   {:time-before-starting-next-round 10})
+                   {:time-before-starting-next-round 10 :number-of-cards-swapped 1})
       (Thread/sleep 100)
       (is (= :started (:status (get @matches "match-1"))))
       (is (= {:Team1 {:total-score 0 :players ["player-1-name" "player-3-name"]}

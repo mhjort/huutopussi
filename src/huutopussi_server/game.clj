@@ -29,12 +29,12 @@
    :current-trick-cards (:current-trick-cards game-model)})
 
 
-(defn- init-model [model-fns {:keys [teams next-player-id players] :as previous-game-model}]
+(defn- init-model [model-fns previous-game-model options]
   (if-let [first-model-init (:model-init (first model-fns))]
-    (first-model-init teams next-player-id players)
+    (first-model-init previous-game-model options)
     previous-game-model))
 
-(defn- start-game-loop [model-fns get-match-game-model update-match-game-model!]
+(defn- start-game-loop [model-fns get-match-game-model update-match-game-model! options]
   (let [poison-pill (chan)
         game-ended (go-loop [active-model-fns model-fns]
                      (let [model-tick (:model-tick (first active-model-fns))
@@ -49,7 +49,7 @@
                                 model-fns-for-next-round] (if phase-ended?
                                                             (do
                                                               (update-match-game-model! updated-game-model)
-                                                              [(init-model (rest active-model-fns) updated-game-model)
+                                                              [(init-model (rest active-model-fns) updated-game-model options)
                                                                (rest active-model-fns)])
                                                             [updated-game-model active-model-fns])]
                            (log/info "Action" action "run and model updated to" (util/pretty-print model-for-next-round))
@@ -63,12 +63,13 @@
                      cards-per-player
                      get-match-game-model
                      update-match-game-model!
-                     model-fns]}]
+                     model-fns
+                     options]}]
   (let [game-model (init-model model-fns {:teams teams
                                           :next-player-id starting-player-id
-                                          :players (util/generate-players teams cards-per-player)})]
+                                          :players (util/generate-players teams cards-per-player)} options)]
     (update-match-game-model! game-model)
-    (start-game-loop model-fns get-match-game-model update-match-game-model!)))
+    (start-game-loop model-fns get-match-game-model update-match-game-model! options)))
 
 (defn run-action [{:keys [game-model] :as match} player-id {:keys [action-type card-index value] :as action}]
   (log/info "Going to run action with player-id" player-id "and action" action "from match" (keys match))

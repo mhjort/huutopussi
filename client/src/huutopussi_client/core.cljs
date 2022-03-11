@@ -121,6 +121,10 @@
                   :on-click #(run-action id nil)}
               title]])
 
+(defn- show-give-cards [{:keys [id possible-values]}]
+  (let [number-of-cards-to-give (-> possible-values first count)]
+    ^{:key id}[:span (str "Anna tiimikaverillesi " number-of-cards-to-give " korttia.")]))
+
 (defn- show-possible-trumps [{:keys [phase possible-actions]}]
   (when (= "marjapussi" phase)
     (for [{:keys [action-type suit target-player] :as action} possible-actions]
@@ -138,6 +142,7 @@
       (case action-type
         "place-bid" (show-action-selection-box action "Huuda valitsemasi pistemäärä!")
         "fold" (show-action-trigger action "Luovuta huuto")
+        "give-cards" (show-give-cards action)
         "set-target-score" (show-action-selection-box action "Aseta jaon pistemäärätavoite")))))
 
 (defn- show-next-player [player-name {:keys [next-player-name phase]}]
@@ -167,6 +172,8 @@
     (case event-type
       "bid-placed" (str player " huusi pistemäärän " value)
       "folded" (str player " luovutti huudon")
+      "bid-won" (str player " voitti huudon " value " pisteen huudolla")
+      "cards-given" (str player " antoi " value " korttia tiimikaverille")
       "target-score-set" (str player " asetti tiimin tavoitteeksi " value " pistettä")
       "card-played" (str player " löi " (format-card card :genitive))
       "round-won" (str player " vei " trick-str " " (format-card card :adessive))
@@ -189,7 +196,7 @@
     ^{:key "events"} [:section#events
                       [:h3 "Pelitapahtumat"]
                       [:ul
-                       (for [event (take 3 (reverse phase-events))]
+                       (for [event (take 4 (reverse phase-events))]
                          ^{:key event} [:li (format-event event)])]]))
 
 (defn- show-game-scores [scores]
@@ -204,6 +211,7 @@
 
 (defn- show-match-view []
   (let [player-name @(re-frame/subscribe [:player-name])
+        chosen-card-indexes @(re-frame/subscribe [:chosen-card-indexes])
         {:keys [scores
                 current-trump-suit
                 cards
@@ -223,11 +231,17 @@
                      [:h3 "Käsikorttisi"]
                      [:ul#player-hand
                       (for [[index card] (doall (map-indexed vector cards))]
-                        ^{:key (str "hand-" (format-card card :genitive))} [:li
-                                                                            [:img {:on-click #(re-frame/dispatch [:player-card index])
-                                                                                   :src (card-url card)
-                                                                                   :width "170px"
-                                                                                   :height "auto"}]])]
+                        (let [card-chosen? ((set chosen-card-indexes) index)
+                              border-style (if card-chosen?
+                                             {:border-style "solid"
+                                              :border-color "coral"}
+                                             {})]
+                          ^{:key (str "hand-" (format-card card :genitive))} [:li
+                                                                              [:img {:on-click #(re-frame/dispatch [:player-card index])
+                                                                                     :style border-style
+                                                                                     :src (card-url card)
+                                                                                     :width "170px"
+                                                                                     :height "auto"}]]))]
                      [:h3 "Tikin kortit"]
                      [:ul#trick-cards {:style {:display "flex"}}
                       (for [{:keys [card player]} trick-cards]
@@ -304,14 +318,27 @@
     {:db (assoc db :game game)}))
 
 (re-frame/reg-event-fx
-  :player-card
-  (fn [{:keys [db]} [_ card-index]]
-    (let [card-to-play (nth (-> db :game :cards) card-index)
-          possible-cards (-> db :game :possible-cards)
-          is-possible-card? (boolean (some #{card-to-play} possible-cards))]
-      (if is-possible-card?
-        {:play-card {:match-id (-> db :match :id) :player-id (:player-id db) :card-index card-index}}
-        {:show-error {:message (str "Kortti " card-to-play " ei ole yksi pelattavista korteista " :possible-cards)}}))))
+ :player-card
+ (fn [{:keys [db]} [_ card-index]]
+   (case (-> db :game :phase)
+     "bidding" (let [updated-card-indexes (distinct (conj (:chosen-card-indexes db) card-index))
+                     ;TODO Do not hardcode number of cards to give
+                     all-cards-chosen? (= 3 (count updated-card-indexes))
+                     chosen-card-indexes (if all-cards-chosen?
+                                           []
+                                           updated-card-indexes)]
+                 (cond-> {:db (assoc db :chosen-card-indexes chosen-card-indexes)}
+                   ;TODO Do not hardcode number of cards to give
+                   (= 3 (count updated-card-indexes)) (assoc :run-player-action {:match-id (-> db :match :id)
+                                                                                 :player-id (:player-id db)
+                                                                                 :action-id "give-cards"
+                                                                                 :action-value updated-card-indexes})))
+     "marjapussi" (let [card-to-play (nth (-> db :game :cards) card-index)
+                        possible-cards (-> db :game :possible-cards)
+                        is-possible-card? (boolean (some #{card-to-play} possible-cards))]
+                    (if is-possible-card?
+                      {:play-card {:match-id (-> db :match :id) :player-id (:player-id db) :card-index card-index}}
+                      {:show-error {:message (str "Kortti " card-to-play " ei ole yksi pelattavista korteista " :possible-cards)}})))))
 
 (re-frame/reg-event-fx
   :player-action
@@ -364,6 +391,11 @@
   :match
   (fn [db _]
     (:match db)))
+
+(re-frame/reg-sub
+  :chosen-card-indexes
+  (fn [db _]
+    (:chosen-card-indexes db)))
 
 (re-frame/reg-sub
   :game
