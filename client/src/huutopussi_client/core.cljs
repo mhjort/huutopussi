@@ -172,6 +172,7 @@
     (case event-type
       "bid-placed" (str player " huusi pistemäärän " value)
       "folded" (str player " luovutti huudon")
+      "bid-won" (str player " voitti huudon " value " pisteen huudolla")
       "target-score-set" (str player " asetti tiimin tavoitteeksi " value " pistettä")
       "card-played" (str player " löi " (format-card card :genitive))
       "round-won" (str player " vei " trick-str " " (format-card card :adessive))

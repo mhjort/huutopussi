@@ -56,6 +56,10 @@
                          (util/team-mate-for-player next-non-folded-player-id teams)
                          next-non-folded-player-id)
         next-player-hand-cards (get-in players [next-player-id :hand-cards])
+        generated-events (cond-> [{:event-type :folded :player player-id}]
+                           bidding-ended? (conj {:event-type :bid-won
+                                                 :player next-non-folded-player-id
+                                                 :value highest-bid}))
         possible-actions (if bidding-ended?
                            [{:id "give-cards"
                              :action-type :give-cards
@@ -72,7 +76,7 @@
         (assoc-in [:players player-id :possible-actions] [])
         (assoc :next-player-id next-player-id)
         (assoc-in [:players next-player-id :possible-actions] possible-actions)
-        (update :events conj {:event-type :folded :player player-id}))))
+        (update :events (comp vec concat) generated-events))))
 
 ;TODO Read max score from options
 (def possible-target-scores (range 50 420 5))
@@ -93,8 +97,7 @@
                            [{:id "give-cards"
                              :action-type :give-cards
                              :possible-values (possible-card-indexes-to-give target-player-hand-cards
-                                                                             (:number-of-cards-swapped options))}])
-        ]
+                                                                             (:number-of-cards-swapped options))}])]
   ;TODO Emit new event
     (-> game-model
         (assoc-in [:players player-id :possible-actions] [])

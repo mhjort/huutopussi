@@ -249,7 +249,8 @@
               :events [{:event-type :bid-placed :player "a" :value 60}
                        {:event-type :folded :player "b"}
                        {:event-type :folded :player "c"}
-                       {:event-type :folded :player "d"}]
+                       {:event-type :folded :player "d"}
+                       {:event-type :bid-won :player "a" :value 60}]
               :players {"a" {:player-id "a"
                              :player-index 0
                              :hand-cards [a-card]
@@ -285,7 +286,8 @@
                 :events [{:event-type :bid-placed :player "a" :value 60}
                          {:event-type :folded :player "b"}
                          {:event-type :folded :player "c"}
-                         {:event-type :folded :player "d"}]
+                         {:event-type :folded :player "d"}
+                         {:event-type :bid-won :player "a" :value 60}]
                 :players {"a" {:player-id "a"
                                :player-index 0
                                :hand-cards [a-card c-card]
@@ -321,7 +323,8 @@
                     :events [{:event-type :bid-placed :player "a" :value 60}
                              {:event-type :folded :player "b"}
                              {:event-type :folded :player "c"}
-                             {:event-type :folded :player "d"}]
+                             {:event-type :folded :player "d"}
+                             {:event-type :bid-won :player "a" :value 60}]
                     :players {"a" {:player-id "a"
                                    :player-index 0
                                    :hand-cards [c-card]
@@ -358,6 +361,7 @@
                                  {:event-type :folded :player "b"}
                                  {:event-type :folded :player "c"}
                                  {:event-type :folded :player "d"}
+                                 {:event-type :bid-won :player "a" :value 60}
                                  {:event-type :target-score-set :player "a" :value 60}]
                         :players {"a" {:player-id "a"
                                        :player-index 0
