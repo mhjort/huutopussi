@@ -220,6 +220,13 @@
                 teams
                 current-round] :as game} @(re-frame/subscribe [:game])]
     (list
+     ^{:key "scoring-rules"} [:section#scoring-rules-box
+                              [:h4 "Pisteytys"]
+                              [:ul
+                               [:li "Herttavaltti: 100"]
+                               [:li "Ruutuvaltti: 80"]
+                               [:li "Ristivaltti: 60"]
+                               [:li "Patavaltti: 40"]]]
      ^{:key "match-info"} [:section#match-info
                            [:p (show-teams teams)]
                            [:h3 (str "Jako (" current-round ". tikki)")]

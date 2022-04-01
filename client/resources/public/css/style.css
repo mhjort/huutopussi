@@ -1,22 +1,32 @@
 /* some style */
 
 body {
-    font-family: Helvetica, sans-serif;
+  font-family: Helvetica, sans-serif;
 }
 
 main #player-hand, main #trick-cards {
-    list-style: none;
-    padding-left: 0;
+  list-style: none;
+  padding-left: 0;
 }
 
 main #player-hand li {
-    display: inline;
+  display: inline;
 }
 
 #trick-cards li div {
-    text-align: center;
+  text-align: center;
 }
 
 #startup-form {
-    margin-bottom: 1em;
+  margin-bottom: 1em;
+}
+
+#scoring-rules-box {
+  position: absolute;
+  top: 0px;
+  right: 100px;
+}
+
+#scoring-rules-box h4 {
+  text-align: center;
 }
