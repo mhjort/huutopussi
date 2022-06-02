@@ -13,3 +13,5 @@ pom.xml.asc
 resources/public/main.js
 resources/public/img/*
 resources/public/css/*
+.lsp/
+.clj-kondo/

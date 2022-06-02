@@ -11,4 +11,6 @@ pom.xml
 .nrepl-port
 .cpcache/
 .rebel_readline_history
+.lsp/
+.clj-kondo/
 cljs-out/
