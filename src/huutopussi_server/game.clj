@@ -28,7 +28,6 @@
    :scores (team-scores game-model)
    :current-trick-cards (:current-trick-cards game-model)})
 
-
 (defn- init-model [model-fns previous-game-model options]
   (if-let [first-model-init (:model-init (first model-fns))]
     (first-model-init previous-game-model options)

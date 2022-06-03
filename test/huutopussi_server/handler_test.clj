@@ -194,7 +194,9 @@
                                        (update-in [:scores :Team1] inc)
                                        (assoc :events [{:event-type :phase2-event}])
                                        (assoc :phase-ended? (= "end-game" id))))}]
-                   {:time-before-starting-next-round 10 :number-of-cards-swapped 1})
+                   {:time-before-starting-next-round 10
+                    :number-of-cards-swapped 1
+                    :points-to-win-match 3})
       (Thread/sleep 100)
       (is (= :started (:status (get @matches "match-1"))))
       (is (= {:Team1 {:total-score 0 :players ["player-1-name" "player-3-name"]}
@@ -216,5 +218,14 @@
       (run-action "match-1" "player-2" {:id "end-game" :action-type :dummy})
       (is (= 2 @started-phase1-rounds))
       (is (= {:Team1 {:total-score 2 :players ["player-1-name" "player-3-name"]}
+              :Team2 {:total-score 0 :players ["player-2-name" "player-4-name"]}}
+             (:teams (get-status "match-1" "player-1")))))
+    (testing "match ends when team1 has enough points"
+      (run-action "match-1" "player-1" {:id "set-target-score" :action-type :dummy})
+      (run-action "match-1" "player-2" {:id "continue-game" :action-type :dummy})
+      (run-action "match-1" "player-2" {:id "end-game" :action-type :dummy})
+      (is (= 2 @started-phase1-rounds))
+      (is (= "Team1" (:winning-team (get-status "match-1" "player-1"))))
+      (is (= {:Team1 {:total-score 3 :players ["player-1-name" "player-3-name"]}
               :Team2 {:total-score 0 :players ["player-2-name" "player-4-name"]}}
              (:teams (get-status "match-1" "player-1")))))))
