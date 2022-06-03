@@ -110,22 +110,22 @@
   false)
 
 (defn- show-action-selection-box [{:keys [possible-values id]} title]
-  ^{:key id}[:div [:span title]
-             [:select {:defaultValue "Valitse"
-                       :on-change #(run-action id (js/parseInt (.. % -target -value)))}
-              [:option {:disabled true} "Valitse"]
-              (for [possible-value possible-values]
-                ^{:key possible-value}[:option {:value possible-value} possible-value])]])
+  ^{:key id} [:div [:span title]
+              [:select {:defaultValue "Valitse"
+                        :on-change #(run-action id (js/parseInt (.. % -target -value)))}
+               [:option {:disabled true} "Valitse"]
+               (for [possible-value possible-values]
+                 ^{:key possible-value} [:option {:value possible-value} possible-value])]])
 
 (defn- show-action-trigger [{:keys [id]} title]
-  ^{:key id}[:span " "
-             [:a {:href "#"
-                  :on-click #(run-action id nil)}
-              title]])
+  ^{:key id} [:span " "
+              [:a {:href "#"
+                   :on-click #(run-action id nil)}
+               title]])
 
 (defn- show-give-cards [{:keys [id possible-values]}]
   (let [number-of-cards-to-give (-> possible-values first count)]
-    ^{:key id}[:span (str "Anna tiimikaverillesi " number-of-cards-to-give " korttia.")]))
+    ^{:key id} [:span (str "Anna tiimikaverillesi " number-of-cards-to-give " korttia.")]))
 
 (defn- show-possible-trumps [{:keys [phase possible-actions]}]
   (when (= "marjapussi" phase)
@@ -259,13 +259,12 @@
                      [:h3 "Tikin kortit"]
                      [:ul#trick-cards {:style {:display "flex"}}
                       (for [{:keys [card player]} trick-cards]
-                        ^{:key (str "trick-" (format-card card :genitive))}[:li {:style {:width "170px"}}
-                                                                            [:div player]
-                                                                            [:img {:src (card-url card)
-                                                                                   :width "100%"
-                                                                                   :height "auto"}]])]]
-     (events-view phase)
-     )))
+                        ^{:key (str "trick-" (format-card card :genitive))} [:li {:style {:width "170px"}}
+                                                                             [:div player]
+                                                                             [:img {:src (card-url card)
+                                                                                    :width "100%"
+                                                                                    :height "auto"}]])]]
+     (events-view phase))))
 
 (defn- show-match-status []
   (condp = @(re-frame/subscribe [:state-change])
@@ -286,8 +285,8 @@
                              [:button {:type "submit"
                                        :value "Käynnistä peli!"
                                        :on-click #(re-frame/dispatch [:start-matchmake @player-name])} "Käynnistä peli!"]]
-     ^{:key "autoplay"}[:div
-                        [:a {:href "?auto-play=true"} "Käynnistä botti"]])))
+     ^{:key "autoplay"} [:div
+                         [:a {:href "?auto-play=true"} "Käynnistä botti"]])))
 
 (defn home []
   (let [state (re-frame/subscribe [:state-change])]
@@ -307,29 +306,29 @@
     (mount el start-matchmake?)))
 
 (re-frame/reg-event-fx
-  :start-matchmake
-  (fn [{:keys [db]} [_ player-name]]
-    {:start-matchmake {:player-name player-name}
-     :db (assoc db :state :finding-match :player-name player-name)}))
+ :start-matchmake
+ (fn [{:keys [db]} [_ player-name]]
+   {:start-matchmake {:player-name player-name}
+    :db (assoc db :state :finding-match :player-name player-name)}))
 
 (re-frame/reg-event-fx
-  :matched
-  (fn [{:keys [db]} [_ [{:keys [id] :as match} player-id]]]
-    {:wait-for-match {:player-id player-id :match-id id}
-     :db (assoc db :state :matched :match match :player-id player-id)}))
+ :matched
+ (fn [{:keys [db]} [_ [{:keys [id] :as match} player-id]]]
+   {:wait-for-match {:player-id player-id :match-id id}
+    :db (assoc db :state :matched :match match :player-id player-id)}))
 
 (re-frame/reg-event-fx
-  :game-started
-  (fn [{:keys [db]} [_ _]]
-    {:play-game {:player-name (:player-name db)
-                 :player-id (:player-id db)
+ :game-started
+ (fn [{:keys [db]} [_ _]]
+   {:play-game {:player-name (:player-name db)
+                :player-id (:player-id db)
                 :match-id (-> db :match :id)}
-     :db (assoc db :state :started)}))
+    :db (assoc db :state :started)}))
 
 (re-frame/reg-event-fx
-  :game-status
-  (fn [{:keys [db]} [_ game]]
-    {:db (assoc db :game game)}))
+ :game-status
+ (fn [{:keys [db]} [_ game]]
+   {:db (assoc db :game game)}))
 
 (re-frame/reg-event-fx
  :player-card
@@ -355,77 +354,77 @@
                       {:show-error {:message (str "Kortti " card-to-play " ei ole yksi pelattavista korteista " :possible-cards)}})))))
 
 (re-frame/reg-event-fx
-  :player-action
-  (fn [{:keys [db]} [_ {:keys [id value]}]]
+ :player-action
+ (fn [{:keys [db]} [_ {:keys [id value]}]]
     ;TODO Check if user can actually do this
-    {:run-player-action {:match-id (-> db :match :id) :player-id (:player-id db) :action-id id :action-value value}}))
+   {:run-player-action {:match-id (-> db :match :id) :player-id (:player-id db) :action-id id :action-value value}}))
 
 (re-frame/reg-fx
-  :show-error
-  (fn [{:keys [message]}]
-    (throw (js/Error. message))))
+ :show-error
+ (fn [{:keys [message]}]
+   (throw (js/Error. message))))
 
 (re-frame/reg-fx
-  :play-card
-  (fn [{:keys [match-id player-id card-index]}]
-    (game-client/play-card match-id player-id card-index)))
+ :play-card
+ (fn [{:keys [match-id player-id card-index]}]
+   (game-client/play-card match-id player-id card-index)))
 
 (re-frame/reg-fx
-  :run-player-action
-  (fn [{:keys [match-id player-id action-id action-value]}]
-    (game-client/run-player-action match-id player-id action-id action-value)))
+ :run-player-action
+ (fn [{:keys [match-id player-id action-id action-value]}]
+   (game-client/run-player-action match-id player-id action-id action-value)))
 
 (re-frame/reg-fx
-  :play-game
-  play-game)
+ :play-game
+ play-game)
 
 (re-frame/reg-fx
-  :start-matchmake
-  start-matchmake)
+ :start-matchmake
+ start-matchmake)
 
 (re-frame/reg-fx
-  :wait-for-match
-  (fn [{:keys [player-id match-id]}]
-    (go
-      (<! (game-client/mark-as-ready match-id player-id))
-      (<! (game-client/wait-until-state match-id "started"))
-      (re-frame/dispatch [:game-started]))))
+ :wait-for-match
+ (fn [{:keys [player-id match-id]}]
+   (go
+     (<! (game-client/mark-as-ready match-id player-id))
+     (<! (game-client/wait-until-state match-id "started"))
+     (re-frame/dispatch [:game-started]))))
 
 (re-frame/reg-sub
-  :state-change
-  (fn [db _]
-    (:state db)))
+ :state-change
+ (fn [db _]
+   (:state db)))
 
 (re-frame/reg-sub
-  :player-name
-  (fn [db _]
-    (:player-name db)))
+ :player-name
+ (fn [db _]
+   (:player-name db)))
 
 (re-frame/reg-sub
-  :match
-  (fn [db _]
-    (:match db)))
+ :match
+ (fn [db _]
+   (:match db)))
 
 (re-frame/reg-sub
-  :chosen-card-indexes
-  (fn [db _]
-    (:chosen-card-indexes db)))
+ :chosen-card-indexes
+ (fn [db _]
+   (:chosen-card-indexes db)))
 
 (re-frame/reg-sub
-  :game
-  (fn [db _]
-    (:game db)))
+ :game
+ (fn [db _]
+   (:game db)))
 
 (re-frame/reg-sub
-  :events
-  (fn [db _]
-    (-> db :game :events)))
+ :events
+ (fn [db _]
+   (-> db :game :events)))
 
 (re-frame/reg-event-db ;; notice it's a db event
-  :change-state
-  (fn [db [_ state]]
-    (println "updating state to" state)
-    (assoc db :state state)))
+ :change-state
+ (fn [db [_ state]]
+   (println "updating state to" state)
+   (assoc db :state state)))
 
 (defn ^:after-load after-reload-callback []
   (mount-app-element false)
