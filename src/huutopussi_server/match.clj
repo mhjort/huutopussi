@@ -6,7 +6,7 @@
             [huutopussi-server.util :as util]
             [huutopussi-server.scoring :as scoring]
             [huutopussi-server.schemas :as schemas]
-            [clojure.core.async :refer [chan go go-loop >! alts! timeout]]
+            [clojure.core.async :refer [chan go go-loop <! >! alts! timeout]]
             [clojure.tools.logging :as log]))
 
 (def initial-model-fns
@@ -22,11 +22,12 @@
     match))
 
 (defn get-match-status [matches id player-id]
-  (let [{:keys [teams status] :as match} (get-match matches id)]
+  (let [{:keys [teams winning-team status] :as match} (get-match matches id)]
     (when-not (= :started status)
       (throw (Exception. (str "Match " id " status should be started, but was " status))))
     (util/replace-player-ids-with-player-names match
                                                (assoc (game/get-game-status match player-id)
+                                                      :winning-team winning-team
                                                       :teams teams))))
 
 (defn stop-match-loops [matches]
@@ -53,13 +54,41 @@
       (assoc :game-model game-model)
       (assoc-in [:events phase] events)))
 
+(defn- interrupt-match [id broadcast-channel]
+  (when broadcast-channel
+    (go (>! broadcast-channel true)))
+  (log/info "Match" id "interrupted"))
+
+(defn- update-score-and-match-continues? [matches
+                                          id
+                                          poison-pill
+                                          {:keys [time-before-starting-next-round
+                                                  points-to-win-match]
+                                           :or {time-before-starting-next-round 15000
+                                                points-to-win-match 500}}]
+  (update-total-score matches id)
+  (let [{:keys [teams]} (get-match matches id)
+        winning-team (scoring/get-winning-team teams points-to-win-match)]
+    (go
+      (if winning-team
+        (do
+          ;; TODO We should also update match state to ended and use that in api
+          (swap! matches #(update % id assoc :winning-team winning-team))
+          false)
+        (let [_ (log/info "Game ended. Starting new one in" time-before-starting-next-round "milliseconds")
+              [_ ch] (alts! [(timeout time-before-starting-next-round) poison-pill])]
+          (if (= poison-pill ch)
+            (do
+              (interrupt-match id nil)
+              false)
+            true))))))
+
 (defn- start-match-loop [matches
                          teams
                          id
                          players
                          starting-players
-                         {:keys [time-before-starting-next-round]
-                          :or {time-before-starting-next-round 15000} :as options}
+                         options
                          model-fns]
   (let [poison-pill (chan)
         update-game-model! (fn [game-model]
@@ -77,15 +106,12 @@
             _ (swap! matches #(update % id assoc :status :started :players players))
             [_ ch] (alts! [game-ended poison-pill])]
         (if (= poison-pill ch)
-          (do (>! game-loop-poison-pill true)
-              (log/info "Match" id "ended"))
-          (do
-            (update-total-score matches id)
-            (log/info "Game ended. Starting new one in" time-before-starting-next-round "milliseconds")
-            (let [[_ ch] (alts! [(timeout time-before-starting-next-round) poison-pill])]
-              (if (= poison-pill ch)
-                (log/info "Match" id "ended")
-                (recur (rest starting-players-in-order))))))))))
+          (interrupt-match id game-loop-poison-pill)
+          (when (<! (update-score-and-match-continues? matches
+                                                       id
+                                                       poison-pill
+                                                       options))
+            (recur (rest starting-players-in-order))))))))
 
 (defn start [matches id model-fns options]
   (let [{:keys [players teams] :as match} (get-match matches id)

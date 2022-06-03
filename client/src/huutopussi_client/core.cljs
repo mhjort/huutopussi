@@ -82,6 +82,7 @@
                     scores
                     phase
                     next-player-name
+                    winning-team
                     teams]} (<! (game-client/get-game-status match-id player-id))]
         (re-frame/dispatch [:game-status {:cards hand-cards
                                           :possible-cards possible-cards
@@ -89,6 +90,7 @@
                                           :events events
                                           :scores scores
                                           :teams teams
+                                          :winning-team winning-team
                                           :phase phase
                                           :current-round (inc current-round) ;Server round is zero based
                                           :current-trump-suit current-trump-suit
@@ -218,6 +220,7 @@
                 trick-cards
                 phase
                 teams
+                winning-team
                 current-round] :as game} @(re-frame/subscribe [:game])]
     (list
      ^{:key "scoring-rules"} [:section#scoring-rules-box
@@ -227,6 +230,10 @@
                                [:li "Ruutuvaltti: 80"]
                                [:li "Ristivaltti: 60"]
                                [:li "Patavaltti: 40"]]]
+     ;; TODO This is a hack! We should update :state to :match-ended and show different view instead
+     (when winning-team
+       ^{:key "match-ended"} [:section#match-ended-info
+                            [:h3 (str "Peli päättyi. Tiimi " winning-team " voitti!")]])
      ^{:key "match-info"} [:section#match-info
                            [:p (show-teams teams)]
                            [:h3 (str "Jako (" current-round ". tikki)")]
