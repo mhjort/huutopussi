@@ -6,6 +6,7 @@
             [goog.dom :as gdom]
             [cemerick.url :as url]
             [clojure.string :as string]
+            [clojure.data :as data]
             [re-frame.core :as re-frame]
             [reagent.dom :as rdom]))
 
@@ -69,7 +70,7 @@
       (println "Matched match" id "with player id" player-id)
       (re-frame/dispatch [:matched [matched-match player-id]]))))
 
-(defn play-game [{:keys [match-id player-name player-id]}]
+(defn play-game [{:keys [match-id player-id]}]
   (go
     (loop []
       (let [{:keys [hand-cards
@@ -84,7 +85,7 @@
                     next-player-name
                     winning-team
                     teams]} (<! (game-client/get-game-status match-id player-id))]
-        (re-frame/dispatch [:game-status {:cards hand-cards
+        (re-frame/dispatch [:game-status {:hand-cards hand-cards
                                           :possible-cards possible-cards
                                           :possible-actions possible-actions
                                           :events events
@@ -96,13 +97,7 @@
                                           :current-trump-suit current-trump-suit
                                           :next-player-name next-player-name
                                           :trick-cards current-trick-cards}])
-        (when (and auto-play? (= player-name next-player-name))
-          (when-let [bot-action (bot/choose-bot-action {:phase phase
-                                                        :hand-cards hand-cards
-                                                        :possible-cards possible-cards
-                                                        :possible-actions possible-actions})]
-            (re-frame/dispatch bot-action))))
-      (<! (timeout 500))
+        (<! (timeout 500)))
       (recur))))
 
 (defn- run-action [id value]
@@ -148,12 +143,16 @@
         "set-target-score" (show-action-selection-box action "Aseta jaon pistemäärätavoite")))))
 
 (defn- show-next-player [player-name {:keys [next-player-name phase]}]
-  (if (= player-name next-player-name)
-    (let [your-turn-text (case phase
-                           "bidding" "Sinun vuorosi"
-                           "marjapussi" "Sinun vuorosi lyödä kortti")]
-      [:b your-turn-text])
-    (str "Odottaa pelaajaa " next-player-name)))
+  (let [waiting-for-player-action? @(re-frame/subscribe [:waiting-for-player-action?])]
+    (if (= player-name next-player-name)
+      (let [your-turn-text (if waiting-for-player-action? (case phase
+                                                            "bidding" "Nyt on sinun vuorosi"
+                                                            "marjapussi" "Nyt on sinun vuorosi lyödä kortti")
+                             ;;TODO This case happens incorrectly sometimes. When you run an action
+                             ;; waiting-for-player-action? is set to false but next player is not udated yet
+                               "Odotellaan")]
+        [:b your-turn-text])
+      (str "Odottaa pelaajaa " next-player-name))))
 
 (defn- format-card [{:keys [text suit]} grammatical-case]
   (case grammatical-case
@@ -216,7 +215,7 @@
         chosen-card-indexes @(re-frame/subscribe [:chosen-card-indexes])
         {:keys [scores
                 current-trump-suit
-                cards
+                hand-cards
                 trick-cards
                 phase
                 teams
@@ -244,7 +243,7 @@
      ^{:key "main"} [:main
                      [:h3 "Käsikorttisi"]
                      [:ul#player-hand
-                      (for [[index card] (doall (map-indexed vector cards))]
+                      (for [[index card] (doall (map-indexed vector hand-cards))]
                         (let [card-chosen? ((set chosen-card-indexes) index)
                               border-style (if card-chosen?
                                              {:border-style "solid"
@@ -298,7 +297,7 @@
 
 (defn mount [el start-matchmake?]
   (when start-matchmake?
-    (re-frame/dispatch-sync [:change-state :enter-name]))
+    (re-frame/dispatch-sync [:init-application nil]))
   (rdom/render [home] el))
 
 (defn mount-app-element [start-matchmake?]
@@ -323,12 +322,17 @@
    {:play-game {:player-name (:player-name db)
                 :player-id (:player-id db)
                 :match-id (-> db :match :id)}
-    :db (assoc db :state :started)}))
+    :db (-> db
+            (assoc :state :started)
+            (assoc-in [:client :waiting-for-player-action?] true))}))
 
 (re-frame/reg-event-fx
- :game-status
- (fn [{:keys [db]} [_ game]]
-   {:db (assoc db :game game)}))
+  :game-status
+  (fn [{:keys [db]} [_ game]]
+    (let [[_ new-events] (data/diff (-> db :game :events) (:events game))]
+      (cond-> {:db (assoc db :game game)}
+        new-events
+        (assoc :new-events {:new-events new-events})))))
 
 (re-frame/reg-event-fx
  :player-card
@@ -342,27 +346,55 @@
                                            updated-card-indexes)]
                  (cond-> {:db (assoc db :chosen-card-indexes chosen-card-indexes)}
                    ;TODO Do not hardcode number of cards to give
+                   (= 3 (count updated-card-indexes)) (assoc-in [:db :client :waiting-for-player-action?] false)
                    (= 3 (count updated-card-indexes)) (assoc :run-player-action {:match-id (-> db :match :id)
                                                                                  :player-id (:player-id db)
                                                                                  :action-id "give-cards"
                                                                                  :action-value updated-card-indexes})))
-     "marjapussi" (let [card-to-play (nth (-> db :game :cards) card-index)
+     "marjapussi" (let [card-to-play (nth (-> db :game :hand-cards) card-index)
                         possible-cards (-> db :game :possible-cards)
                         is-possible-card? (boolean (some #{card-to-play} possible-cards))]
                     (if is-possible-card?
-                      {:play-card {:match-id (-> db :match :id) :player-id (:player-id db) :card-index card-index}}
+                      {:play-card {:match-id (-> db :match :id) :player-id (:player-id db) :card-index card-index}
+                       :db (assoc-in db [:client :waiting-for-player-action?] false)}
                       {:show-error {:message (str "Kortti " card-to-play " ei ole yksi pelattavista korteista " :possible-cards)}})))))
 
 (re-frame/reg-event-fx
  :player-action
  (fn [{:keys [db]} [_ {:keys [id value]}]]
     ;TODO Check if user can actually do this
-   {:run-player-action {:match-id (-> db :match :id) :player-id (:player-id db) :action-id id :action-value value}}))
+   {:run-player-action {:match-id (-> db :match :id) :player-id (:player-id db) :action-id id :action-value value}
+    :db (assoc-in db [:client :waiting-for-player-action?] false)}))
+
+(re-frame/reg-event-fx
+ :wait-for-player-action
+ (fn [{:keys [db]} _]
+   {:choose-bot-action {:player-name (:player-name db) :game (:game db)}
+    :db (assoc-in db [:client :waiting-for-player-action?] true)}))
 
 (re-frame/reg-fx
  :show-error
  (fn [{:keys [message]}]
    (throw (js/Error. message))))
+
+(re-frame/reg-fx
+  :choose-bot-action
+  (fn [{:keys [player-name game]}]
+    (let [{:keys [next-player-name phase hand-cards possible-cards possible-actions]} game]
+        (when (and auto-play? (= player-name next-player-name))
+          (when-let [bot-action (bot/choose-bot-action {:phase phase
+                                                        :hand-cards hand-cards
+                                                        :possible-cards possible-cards
+                                                        :possible-actions possible-actions})]
+            (re-frame/dispatch bot-action))))))
+
+(re-frame/reg-fx
+ :new-events
+ (fn [{:keys [new-events]}]
+   (println "New events:" new-events)
+   (go
+     (<! (timeout 200))
+     (re-frame/dispatch [:wait-for-player-action nil]))))
 
 (re-frame/reg-fx
  :play-card
@@ -420,11 +452,16 @@
  (fn [db _]
    (-> db :game :events)))
 
-(re-frame/reg-event-db ;; notice it's a db event
- :change-state
- (fn [db [_ state]]
-   (println "updating state to" state)
-   (assoc db :state state)))
+(re-frame/reg-sub
+ :waiting-for-player-action?
+ (fn [db _]
+   (-> db :client :waiting-for-player-action?)))
+
+(re-frame/reg-event-db
+ :init-application
+ (fn [_ _]
+   {:state :enter-name
+    :client {:waiting-for-player-action? false}}))
 
 (defn ^:after-load after-reload-callback []
   (mount-app-element false)
