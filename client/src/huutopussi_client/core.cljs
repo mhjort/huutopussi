@@ -2,6 +2,7 @@
   (:require-macros [cljs.core.async.macros :refer [go]])
   (:require [huutopussi-client.game-client :as game-client]
             [huutopussi-client.bot :as bot]
+            [huutopussi-client.translation :as translation]
             [cljs.core.async :refer [<! timeout]]
             [goog.dom :as gdom]
             [cemerick.url :as url]
@@ -17,34 +18,6 @@
 (println "Autoplay?" auto-play?)
 
 (def image-path "/img/cards")
-
-(def suits-fi
-  {"diamonds" "ruutu"
-   "hearts" "hertta"
-   "spades" "pata"
-   "clubs" "risti"})
-
-(def card-text-genitive-fi
-  {"J" "jätkän"
-   "A" "ässän"
-   "K" "kuninkaan"
-   "Q" "rouvan"
-   "10" "kympin"
-   "9" "ysin"
-   "8" "kasin"
-   "7" "seiskan"
-   "6" "kutosen"})
-
-(def card-text-adessive-fi
-  {"J" "jätkällä"
-   "A" "ässällä"
-   "K" "kuninkaalla"
-   "Q" "rouvalla"
-   "10" "kympillä"
-   "9" "ysillä"
-   "8" "kasilla"
-   "7" "seiskalla"
-   "6" "kutosella"})
 
 (defn get-app-element []
   (gdom/getElement "app"))
@@ -127,9 +100,9 @@
     (for [{:keys [action-type suit target-player] :as action} possible-actions]
       (case action-type
         "declare-trump" (show-action-trigger action
-                                             (str "Tee " (get suits-fi suit) "valtti!"))
+                                             (str "Tee " (get translation/suits-fi suit) "valtti!"))
         "ask-for-half-trump" (show-action-trigger action
-                                                  (str "Kysy onko pelaajalla " target-player " " (get suits-fi suit) "puolikasta!"))
+                                                  (str "Kysy onko pelaajalla " target-player " " (get translation/suits-fi suit) "puolikasta!"))
         "ask-for-trump" (show-action-trigger action
                                              (str "Kysy onko pelaajalla " target-player " valtti!"))))))
 
@@ -154,11 +127,6 @@
         [:b your-turn-text])
       (str "Odottaa pelaajaa " next-player-name))))
 
-(defn- format-card [{:keys [text suit]} grammatical-case]
-  (case grammatical-case
-    :genitive (str (get suits-fi suit) (get card-text-genitive-fi text))
-    :adessive (str (get suits-fi suit) (get card-text-adessive-fi text))))
-
 (defn- show-teams [teams]
   (let [formatted-teams (map (fn [[team-name {:keys [total-score players]}]]
                                (str (name team-name) ": (" (string/join "," players) ") pisteet: " total-score))
@@ -176,10 +144,10 @@
       "bid-won" (str player " voitti huudon " value " pisteen huudolla")
       "cards-given" (str player " antoi " value " korttia tiimikaverille")
       "target-score-set" (str player " asetti tiimin tavoitteeksi " value " pistettä")
-      "card-played" (str player " löi " (format-card card :genitive))
-      "round-won" (str player " vei " trick-str " " (format-card card :adessive))
-      "trump-declared" (str player " teki " (get suits-fi (:suit value)) "valtin")
-      "asked-for-half-trump" (str player " kysyi onko tiimikaverilla " (get suits-fi (:suit value)) "puolikasta")
+      "card-played" (str player " löi " (translation/format-card card :genitive))
+      "round-won" (str player " vei " trick-str " " (translation/format-card card :adessive))
+      "trump-declared" (str player " teki " (get translation/suits-fi (:suit value)) "valtin")
+      "asked-for-half-trump" (str player " kysyi onko tiimikaverilla " (get translation/suits-fi (:suit value)) "puolikasta")
       "answered-to-half-trump" (str player " vastasi, että " (if answer
                                                                "löytyy"
                                                                "ei löydy"))
@@ -232,12 +200,12 @@
      ;; TODO This is a hack! We should update :state to :match-ended and show different view instead
      (when winning-team
        ^{:key "match-ended"} [:section#match-ended-info
-                            [:h3 (str "Peli päättyi. Tiimi " winning-team " voitti!")]])
+                              [:h3 (str "Peli päättyi. Tiimi " winning-team " voitti!")]])
      ^{:key "match-info"} [:section#match-info
                            [:p (show-teams teams)]
                            [:h3 (str "Jako (" current-round ". tikki)")]
                            [:p (str "Jaon pisteet:" (show-game-scores scores))
-                            (when current-trump-suit (list ", " (get suits-fi current-trump-suit game) "valtti"))]
+                            (when current-trump-suit (list ", " (get translation/suits-fi current-trump-suit game) "valtti"))]
                            [:p (show-next-player player-name game) (show-possible-trumps game)]
                            (show-possible-bidding-actions game)]
      ^{:key "main"} [:main
@@ -249,20 +217,20 @@
                                              {:border-style "solid"
                                               :border-color "coral"}
                                              {})]
-                          ^{:key (str "hand-" (format-card card :genitive))} [:li
-                                                                              [:img {:on-click #(re-frame/dispatch [:player-card index])
-                                                                                     :style border-style
-                                                                                     :src (card-url card)
-                                                                                     :width "170px"
-                                                                                     :height "auto"}]]))]
+                          ^{:key (str "hand-" (translation/format-card card :genitive))} [:li
+                                                                                          [:img {:on-click #(re-frame/dispatch [:player-card index])
+                                                                                                 :style border-style
+                                                                                                 :src (card-url card)
+                                                                                                 :width "170px"
+                                                                                                 :height "auto"}]]))]
                      [:h3 "Tikin kortit"]
                      [:ul#trick-cards {:style {:display "flex"}}
                       (for [{:keys [card player]} trick-cards]
-                        ^{:key (str "trick-" (format-card card :genitive))} [:li {:style {:width "170px"}}
-                                                                             [:div player]
-                                                                             [:img {:src (card-url card)
-                                                                                    :width "100%"
-                                                                                    :height "auto"}]])]]
+                        ^{:key (str "trick-" (translation/format-card card :genitive))} [:li {:style {:width "170px"}}
+                                                                                         [:div player]
+                                                                                         [:img {:src (card-url card)
+                                                                                                :width "100%"
+                                                                                                :height "auto"}]])]]
      (events-view phase))))
 
 (defn- show-match-status []
