@@ -95,7 +95,7 @@
   (let [number-of-cards-to-give (-> possible-values first count)]
     ^{:key id} [:span (str "Anna tiimikaverillesi " number-of-cards-to-give " korttia.")]))
 
-(defn- show-possible-trumps [{:keys [phase possible-actions]}]
+(defn- show-possible-trump-actions [{:keys [phase possible-actions]}]
   (when (= "marjapussi" phase)
     (for [{:keys [action-type suit target-player] :as action} possible-actions]
       (case action-type
@@ -115,17 +115,16 @@
         "give-cards" (show-give-cards action)
         "set-target-score" (show-action-selection-box action "Aseta jaon pistemäärätavoite")))))
 
-(defn- show-next-player [player-name {:keys [next-player-name phase]}]
-  (let [waiting-for-player-action? @(re-frame/subscribe [:waiting-for-player-action?])]
-    (if (= player-name next-player-name)
-      (let [your-turn-text (if waiting-for-player-action? (case phase
-                                                            "bidding" "Nyt on sinun vuorosi"
-                                                            "marjapussi" "Nyt on sinun vuorosi lyödä kortti")
+(defn- show-next-player [waiting-for-player-action? player-name {:keys [next-player-name phase]}]
+  (if (= player-name next-player-name)
+    (let [your-turn-text (if waiting-for-player-action? (case phase
+                                                          "bidding" "Nyt on sinun vuorosi"
+                                                          "marjapussi" "Nyt on sinun vuorosi lyödä kortti")
                              ;;TODO This case happens incorrectly sometimes. When you run an action
                              ;; waiting-for-player-action? is set to false but next player is not udated yet
-                               "Odotellaan")]
-        [:b your-turn-text])
-      (str "Odottaa pelaajaa " next-player-name))))
+                             "Odotellaan")]
+      [:b your-turn-text])
+    (str "Odottaa pelaajaa " next-player-name)))
 
 (defn- show-teams [teams]
   (let [formatted-teams (map (fn [[team-name {:keys [total-score players]}]]
@@ -180,11 +179,11 @@
 
 (defn- show-match-view []
   (let [player-name @(re-frame/subscribe [:player-name])
+        {:keys [trick-cards waiting-for-player-action?]} @(re-frame/subscribe [:client])
         chosen-card-indexes @(re-frame/subscribe [:chosen-card-indexes])
         {:keys [scores
                 current-trump-suit
                 hand-cards
-                trick-cards
                 phase
                 teams
                 winning-team
@@ -206,8 +205,11 @@
                            [:h3 (str "Jako (" current-round ". tikki)")]
                            [:p (str "Jaon pisteet:" (show-game-scores scores))
                             (when current-trump-suit (list ", " (get translation/suits-fi current-trump-suit game) "valtti"))]
-                           [:p (show-next-player player-name game) (show-possible-trumps game)]
-                           (show-possible-bidding-actions game)]
+                           [:p (show-next-player waiting-for-player-action? player-name game)
+                            (when waiting-for-player-action?
+                              (show-possible-trump-actions game))]
+                           (when waiting-for-player-action?
+                             (show-possible-bidding-actions game))]
      ^{:key "main"} [:main
                      [:h3 "Käsikorttisi"]
                      [:ul#player-hand
@@ -294,13 +296,29 @@
             (assoc :state :started)
             (assoc-in [:client :waiting-for-player-action?] true))}))
 
+(defn- trick-cards-from-events [events]
+  (let [all-played-cards (->> events
+                              (filter #(= "card-played" (:event-type %)))
+                              (map (fn [{:keys [player value]}]
+                                     (assoc value :player player))))]
+    (last (partition-all 4 all-played-cards))))
+
+(defn- contains-event-of-type? [event-type events]
+  (some #(= event-type (:event-type %)) events))
+
 (re-frame/reg-event-fx
-  :game-status
-  (fn [{:keys [db]} [_ game]]
-    (let [[_ new-events] (data/diff (-> db :game :events) (:events game))]
-      (cond-> {:db (assoc db :game game)}
-        new-events
-        (assoc :new-events {:new-events new-events})))))
+ :game-status
+ (fn [{:keys [db]} [_ game]]
+   ;;TODO Remove nils from diff
+   (let [[_ new-events] (data/diff (-> db :game :events) (:events game))
+         card-played? (contains-event-of-type? "card-played" (:marjapussi new-events))
+         round-won? (contains-event-of-type? "round-won" (:marjapussi new-events))
+         trick-cards (trick-cards-from-events (-> game :events :marjapussi))]
+     (cond-> {:db db}
+       true (assoc-in [:db :game] game)
+       card-played? (assoc-in [:db :client :trick-cards] trick-cards)
+       round-won? (assoc-in [:db :client :waiting-for-player-action?] false)
+       new-events (assoc :new-events {:new-events new-events})))))
 
 (re-frame/reg-event-fx
  :player-card
@@ -336,9 +354,11 @@
 
 (re-frame/reg-event-fx
  :wait-for-player-action
- (fn [{:keys [db]} _]
+ (fn [{:keys [db]} [_ {:keys [round-won-player]}]]
    {:choose-bot-action {:player-name (:player-name db) :game (:game db)}
-    :db (assoc-in db [:client :waiting-for-player-action?] true)}))
+    :db (cond-> db
+          round-won-player (assoc-in [:client :trick-cards] [])
+          true (assoc-in [:client :waiting-for-player-action?] true))}))
 
 (re-frame/reg-fx
  :show-error
@@ -359,10 +379,15 @@
 (re-frame/reg-fx
  :new-events
  (fn [{:keys [new-events]}]
-   (println "New events:" new-events)
-   (go
-     (<! (timeout 200))
-     (re-frame/dispatch [:wait-for-player-action nil]))))
+   (let [round-won-player (-> (filter #(= "round-won" (:event-type %)) (:marjapussi new-events))
+                              first
+                              :player)
+         user-delay (if round-won-player
+                      2500
+                      100)]
+     (go
+       (<! (timeout user-delay))
+       (re-frame/dispatch [:wait-for-player-action {:round-won-player round-won-player}])))))
 
 (re-frame/reg-fx
  :play-card
@@ -421,9 +446,9 @@
    (-> db :game :events)))
 
 (re-frame/reg-sub
- :waiting-for-player-action?
+ :client
  (fn [db _]
-   (-> db :client :waiting-for-player-action?)))
+   (:client db)))
 
 (re-frame/reg-event-db
  :init-application
