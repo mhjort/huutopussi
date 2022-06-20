@@ -2,10 +2,12 @@
   (:require-macros [cljs.core.async.macros :refer [go]])
   (:require [huutopussi-client.game-client :as game-client]
             [huutopussi-client.bot :as bot]
+            [huutopussi-client.translation :as translation]
             [cljs.core.async :refer [<! timeout]]
             [goog.dom :as gdom]
             [cemerick.url :as url]
             [clojure.string :as string]
+            [clojure.data :as data]
             [re-frame.core :as re-frame]
             [reagent.dom :as rdom]))
 
@@ -16,34 +18,6 @@
 (println "Autoplay?" auto-play?)
 
 (def image-path "/img/cards")
-
-(def suits-fi
-  {"diamonds" "ruutu"
-   "hearts" "hertta"
-   "spades" "pata"
-   "clubs" "risti"})
-
-(def card-text-genitive-fi
-  {"J" "jätkän"
-   "A" "ässän"
-   "K" "kuninkaan"
-   "Q" "rouvan"
-   "10" "kympin"
-   "9" "ysin"
-   "8" "kasin"
-   "7" "seiskan"
-   "6" "kutosen"})
-
-(def card-text-adessive-fi
-  {"J" "jätkällä"
-   "A" "ässällä"
-   "K" "kuninkaalla"
-   "Q" "rouvalla"
-   "10" "kympillä"
-   "9" "ysillä"
-   "8" "kasilla"
-   "7" "seiskalla"
-   "6" "kutosella"})
 
 (defn get-app-element []
   (gdom/getElement "app"))
@@ -69,7 +43,7 @@
       (println "Matched match" id "with player id" player-id)
       (re-frame/dispatch [:matched [matched-match player-id]]))))
 
-(defn play-game [{:keys [match-id player-name player-id]}]
+(defn play-game [{:keys [match-id player-id]}]
   (go
     (loop []
       (let [{:keys [hand-cards
@@ -84,7 +58,7 @@
                     next-player-name
                     winning-team
                     teams]} (<! (game-client/get-game-status match-id player-id))]
-        (re-frame/dispatch [:game-status {:cards hand-cards
+        (re-frame/dispatch [:game-status {:hand-cards hand-cards
                                           :possible-cards possible-cards
                                           :possible-actions possible-actions
                                           :events events
@@ -96,13 +70,7 @@
                                           :current-trump-suit current-trump-suit
                                           :next-player-name next-player-name
                                           :trick-cards current-trick-cards}])
-        (when (and auto-play? (= player-name next-player-name))
-          (when-let [bot-action (bot/choose-bot-action {:phase phase
-                                                        :hand-cards hand-cards
-                                                        :possible-cards possible-cards
-                                                        :possible-actions possible-actions})]
-            (re-frame/dispatch bot-action))))
-      (<! (timeout 500))
+        (<! (timeout 500)))
       (recur))))
 
 (defn- run-action [id value]
@@ -127,14 +95,14 @@
   (let [number-of-cards-to-give (-> possible-values first count)]
     ^{:key id} [:span (str "Anna tiimikaverillesi " number-of-cards-to-give " korttia.")]))
 
-(defn- show-possible-trumps [{:keys [phase possible-actions]}]
+(defn- show-possible-trump-actions [{:keys [phase possible-actions]}]
   (when (= "marjapussi" phase)
     (for [{:keys [action-type suit target-player] :as action} possible-actions]
       (case action-type
         "declare-trump" (show-action-trigger action
-                                             (str "Tee " (get suits-fi suit) "valtti!"))
+                                             (str "Tee " (get translation/suits-fi suit) "valtti!"))
         "ask-for-half-trump" (show-action-trigger action
-                                                  (str "Kysy onko pelaajalla " target-player " " (get suits-fi suit) "puolikasta!"))
+                                                  (str "Kysy onko pelaajalla " target-player " " (get translation/suits-fi suit) "puolikasta!"))
         "ask-for-trump" (show-action-trigger action
                                              (str "Kysy onko pelaajalla " target-player " valtti!"))))))
 
@@ -147,18 +115,16 @@
         "give-cards" (show-give-cards action)
         "set-target-score" (show-action-selection-box action "Aseta jaon pistemäärätavoite")))))
 
-(defn- show-next-player [player-name {:keys [next-player-name phase]}]
+(defn- show-next-player [waiting-for-player-action? player-name {:keys [next-player-name phase]}]
   (if (= player-name next-player-name)
-    (let [your-turn-text (case phase
-                           "bidding" "Sinun vuorosi"
-                           "marjapussi" "Sinun vuorosi lyödä kortti")]
+    (let [your-turn-text (if waiting-for-player-action? (case phase
+                                                          "bidding" "Nyt on sinun vuorosi"
+                                                          "marjapussi" "Nyt on sinun vuorosi lyödä kortti")
+                             ;;TODO This case happens incorrectly sometimes. When you run an action
+                             ;; waiting-for-player-action? is set to false but next player is not udated yet
+                             "Odotellaan")]
       [:b your-turn-text])
     (str "Odottaa pelaajaa " next-player-name)))
-
-(defn- format-card [{:keys [text suit]} grammatical-case]
-  (case grammatical-case
-    :genitive (str (get suits-fi suit) (get card-text-genitive-fi text))
-    :adessive (str (get suits-fi suit) (get card-text-adessive-fi text))))
 
 (defn- show-teams [teams]
   (let [formatted-teams (map (fn [[team-name {:keys [total-score players]}]]
@@ -177,10 +143,10 @@
       "bid-won" (str player " voitti huudon " value " pisteen huudolla")
       "cards-given" (str player " antoi " value " korttia tiimikaverille")
       "target-score-set" (str player " asetti tiimin tavoitteeksi " value " pistettä")
-      "card-played" (str player " löi " (format-card card :genitive))
-      "round-won" (str player " vei " trick-str " " (format-card card :adessive))
-      "trump-declared" (str player " teki " (get suits-fi (:suit value)) "valtin")
-      "asked-for-half-trump" (str player " kysyi onko tiimikaverilla " (get suits-fi (:suit value)) "puolikasta")
+      "card-played" (str player " löi " (translation/format-card card :genitive))
+      "round-won" (str player " vei " trick-str " " (translation/format-card card :adessive))
+      "trump-declared" (str player " teki " (get translation/suits-fi (:suit value)) "valtin")
+      "asked-for-half-trump" (str player " kysyi onko tiimikaverilla " (get translation/suits-fi (:suit value)) "puolikasta")
       "answered-to-half-trump" (str player " vastasi, että " (if answer
                                                                "löytyy"
                                                                "ei löydy"))
@@ -213,11 +179,11 @@
 
 (defn- show-match-view []
   (let [player-name @(re-frame/subscribe [:player-name])
+        {:keys [trick-cards waiting-for-player-action?]} @(re-frame/subscribe [:client])
         chosen-card-indexes @(re-frame/subscribe [:chosen-card-indexes])
         {:keys [scores
                 current-trump-suit
-                cards
-                trick-cards
+                hand-cards
                 phase
                 teams
                 winning-team
@@ -233,37 +199,40 @@
      ;; TODO This is a hack! We should update :state to :match-ended and show different view instead
      (when winning-team
        ^{:key "match-ended"} [:section#match-ended-info
-                            [:h3 (str "Peli päättyi. Tiimi " winning-team " voitti!")]])
+                              [:h3 (str "Peli päättyi. Tiimi " winning-team " voitti!")]])
      ^{:key "match-info"} [:section#match-info
                            [:p (show-teams teams)]
                            [:h3 (str "Jako (" current-round ". tikki)")]
                            [:p (str "Jaon pisteet:" (show-game-scores scores))
-                            (when current-trump-suit (list ", " (get suits-fi current-trump-suit game) "valtti"))]
-                           [:p (show-next-player player-name game) (show-possible-trumps game)]
-                           (show-possible-bidding-actions game)]
+                            (when current-trump-suit (list ", " (get translation/suits-fi current-trump-suit game) "valtti"))]
+                           [:p (show-next-player waiting-for-player-action? player-name game)
+                            (when waiting-for-player-action?
+                              (show-possible-trump-actions game))]
+                           (when waiting-for-player-action?
+                             (show-possible-bidding-actions game))]
      ^{:key "main"} [:main
                      [:h3 "Käsikorttisi"]
                      [:ul#player-hand
-                      (for [[index card] (doall (map-indexed vector cards))]
+                      (for [[index card] (doall (map-indexed vector hand-cards))]
                         (let [card-chosen? ((set chosen-card-indexes) index)
                               border-style (if card-chosen?
                                              {:border-style "solid"
                                               :border-color "coral"}
                                              {})]
-                          ^{:key (str "hand-" (format-card card :genitive))} [:li
-                                                                              [:img {:on-click #(re-frame/dispatch [:player-card index])
-                                                                                     :style border-style
-                                                                                     :src (card-url card)
-                                                                                     :width "170px"
-                                                                                     :height "auto"}]]))]
+                          ^{:key (str "hand-" (translation/format-card card :genitive))} [:li
+                                                                                          [:img {:on-click #(re-frame/dispatch [:player-card index])
+                                                                                                 :style border-style
+                                                                                                 :src (card-url card)
+                                                                                                 :width "170px"
+                                                                                                 :height "auto"}]]))]
                      [:h3 "Tikin kortit"]
                      [:ul#trick-cards {:style {:display "flex"}}
                       (for [{:keys [card player]} trick-cards]
-                        ^{:key (str "trick-" (format-card card :genitive))} [:li {:style {:width "170px"}}
-                                                                             [:div player]
-                                                                             [:img {:src (card-url card)
-                                                                                    :width "100%"
-                                                                                    :height "auto"}]])]]
+                        ^{:key (str "trick-" (translation/format-card card :genitive))} [:li {:style {:width "170px"}}
+                                                                                         [:div player]
+                                                                                         [:img {:src (card-url card)
+                                                                                                :width "100%"
+                                                                                                :height "auto"}]])]]
      (events-view phase))))
 
 (defn- show-match-status []
@@ -298,7 +267,7 @@
 
 (defn mount [el start-matchmake?]
   (when start-matchmake?
-    (re-frame/dispatch-sync [:change-state :enter-name]))
+    (re-frame/dispatch-sync [:init-application nil]))
   (rdom/render [home] el))
 
 (defn mount-app-element [start-matchmake?]
@@ -323,12 +292,33 @@
    {:play-game {:player-name (:player-name db)
                 :player-id (:player-id db)
                 :match-id (-> db :match :id)}
-    :db (assoc db :state :started)}))
+    :db (-> db
+            (assoc :state :started)
+            (assoc-in [:client :waiting-for-player-action?] true))}))
+
+(defn- trick-cards-from-events [events]
+  (let [all-played-cards (->> events
+                              (filter #(= "card-played" (:event-type %)))
+                              (map (fn [{:keys [player value]}]
+                                     (assoc value :player player))))]
+    (last (partition-all 4 all-played-cards))))
+
+(defn- contains-event-of-type? [event-type events]
+  (some #(= event-type (:event-type %)) events))
 
 (re-frame/reg-event-fx
  :game-status
  (fn [{:keys [db]} [_ game]]
-   {:db (assoc db :game game)}))
+   ;;TODO Remove nils from diff
+   (let [[_ new-events] (data/diff (-> db :game :events) (:events game))
+         card-played? (contains-event-of-type? "card-played" (:marjapussi new-events))
+         round-won? (contains-event-of-type? "round-won" (:marjapussi new-events))
+         trick-cards (trick-cards-from-events (-> game :events :marjapussi))]
+     (cond-> {:db db}
+       true (assoc-in [:db :game] game)
+       card-played? (assoc-in [:db :client :trick-cards] trick-cards)
+       round-won? (assoc-in [:db :client :waiting-for-player-action?] false)
+       new-events (assoc :new-events {:new-events new-events})))))
 
 (re-frame/reg-event-fx
  :player-card
@@ -342,27 +332,62 @@
                                            updated-card-indexes)]
                  (cond-> {:db (assoc db :chosen-card-indexes chosen-card-indexes)}
                    ;TODO Do not hardcode number of cards to give
+                   (= 3 (count updated-card-indexes)) (assoc-in [:db :client :waiting-for-player-action?] false)
                    (= 3 (count updated-card-indexes)) (assoc :run-player-action {:match-id (-> db :match :id)
                                                                                  :player-id (:player-id db)
                                                                                  :action-id "give-cards"
                                                                                  :action-value updated-card-indexes})))
-     "marjapussi" (let [card-to-play (nth (-> db :game :cards) card-index)
+     "marjapussi" (let [card-to-play (nth (-> db :game :hand-cards) card-index)
                         possible-cards (-> db :game :possible-cards)
                         is-possible-card? (boolean (some #{card-to-play} possible-cards))]
                     (if is-possible-card?
-                      {:play-card {:match-id (-> db :match :id) :player-id (:player-id db) :card-index card-index}}
+                      {:play-card {:match-id (-> db :match :id) :player-id (:player-id db) :card-index card-index}
+                       :db (assoc-in db [:client :waiting-for-player-action?] false)}
                       {:show-error {:message (str "Kortti " card-to-play " ei ole yksi pelattavista korteista " :possible-cards)}})))))
 
 (re-frame/reg-event-fx
  :player-action
  (fn [{:keys [db]} [_ {:keys [id value]}]]
     ;TODO Check if user can actually do this
-   {:run-player-action {:match-id (-> db :match :id) :player-id (:player-id db) :action-id id :action-value value}}))
+   {:run-player-action {:match-id (-> db :match :id) :player-id (:player-id db) :action-id id :action-value value}
+    :db (assoc-in db [:client :waiting-for-player-action?] false)}))
+
+(re-frame/reg-event-fx
+ :wait-for-player-action
+ (fn [{:keys [db]} [_ {:keys [round-won-player]}]]
+   {:choose-bot-action {:player-name (:player-name db) :game (:game db)}
+    :db (cond-> db
+          round-won-player (assoc-in [:client :trick-cards] [])
+          true (assoc-in [:client :waiting-for-player-action?] true))}))
 
 (re-frame/reg-fx
  :show-error
  (fn [{:keys [message]}]
    (throw (js/Error. message))))
+
+(re-frame/reg-fx
+  :choose-bot-action
+  (fn [{:keys [player-name game]}]
+    (let [{:keys [next-player-name phase hand-cards possible-cards possible-actions]} game]
+        (when (and auto-play? (= player-name next-player-name))
+          (when-let [bot-action (bot/choose-bot-action {:phase phase
+                                                        :hand-cards hand-cards
+                                                        :possible-cards possible-cards
+                                                        :possible-actions possible-actions})]
+            (re-frame/dispatch bot-action))))))
+
+(re-frame/reg-fx
+ :new-events
+ (fn [{:keys [new-events]}]
+   (let [round-won-player (-> (filter #(= "round-won" (:event-type %)) (:marjapussi new-events))
+                              first
+                              :player)
+         user-delay (if round-won-player
+                      2500
+                      100)]
+     (go
+       (<! (timeout user-delay))
+       (re-frame/dispatch [:wait-for-player-action {:round-won-player round-won-player}])))))
 
 (re-frame/reg-fx
  :play-card
@@ -420,11 +445,16 @@
  (fn [db _]
    (-> db :game :events)))
 
-(re-frame/reg-event-db ;; notice it's a db event
- :change-state
- (fn [db [_ state]]
-   (println "updating state to" state)
-   (assoc db :state state)))
+(re-frame/reg-sub
+ :client
+ (fn [db _]
+   (:client db)))
+
+(re-frame/reg-event-db
+ :init-application
+ (fn [_ _]
+   {:state :enter-name
+    :client {:waiting-for-player-action? false}}))
 
 (defn ^:after-load after-reload-callback []
   (mount-app-element false)
