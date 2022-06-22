@@ -179,7 +179,7 @@
 
 (defn- show-match-view []
   (let [player-name @(re-frame/subscribe [:player-name])
-        {:keys [trick-cards waiting-for-player-action?]} @(re-frame/subscribe [:client])
+        {:keys [trick-cards waiting-for-player-action? round-won-player]} @(re-frame/subscribe [:client])
         chosen-card-indexes @(re-frame/subscribe [:chosen-card-indexes])
         {:keys [scores
                 current-trump-suit
@@ -229,7 +229,9 @@
                      [:ul#trick-cards {:style {:display "flex"}}
                       (for [{:keys [card player]} trick-cards]
                         ^{:key (str "trick-" (translation/format-card card :genitive))} [:li {:style {:width "170px"}}
-                                                                                         [:div player]
+                                                                                         [:div (if (= player round-won-player)
+                                                                                                 [:b player]
+                                                                                                 player)]
                                                                                          [:img {:src (card-url card)
                                                                                                 :width "100%"
                                                                                                 :height "auto"}]])]]
@@ -303,6 +305,11 @@
                                      (assoc value :player player))))]
     (last (partition-all 4 all-played-cards))))
 
+(defn- round-won-player-from-events [events]
+  (-> (filter #(= "round-won" (:event-type %)) events)
+      first
+      :player))
+
 (defn- contains-event-of-type? [event-type events]
   (some #(= event-type (:event-type %)) events))
 
@@ -312,12 +319,13 @@
    ;;TODO Remove nils from diff
    (let [[_ new-events] (data/diff (-> db :game :events) (:events game))
          card-played? (contains-event-of-type? "card-played" (:marjapussi new-events))
-         round-won? (contains-event-of-type? "round-won" (:marjapussi new-events))
+         round-won-player (round-won-player-from-events (:marjapussi new-events))
          trick-cards (trick-cards-from-events (-> game :events :marjapussi))]
      (cond-> {:db db}
        true (assoc-in [:db :game] game)
        card-played? (assoc-in [:db :client :trick-cards] trick-cards)
-       round-won? (assoc-in [:db :client :waiting-for-player-action?] false)
+       card-played? (assoc-in [:db :client :round-won-player] round-won-player)
+       round-won-player (assoc-in [:db :client :waiting-for-player-action?] false)
        new-events (assoc :new-events {:new-events new-events})))))
 
 (re-frame/reg-event-fx
@@ -366,22 +374,20 @@
    (throw (js/Error. message))))
 
 (re-frame/reg-fx
-  :choose-bot-action
-  (fn [{:keys [player-name game]}]
-    (let [{:keys [next-player-name phase hand-cards possible-cards possible-actions]} game]
-        (when (and auto-play? (= player-name next-player-name))
-          (when-let [bot-action (bot/choose-bot-action {:phase phase
-                                                        :hand-cards hand-cards
-                                                        :possible-cards possible-cards
-                                                        :possible-actions possible-actions})]
-            (re-frame/dispatch bot-action))))))
+ :choose-bot-action
+ (fn [{:keys [player-name game]}]
+   (let [{:keys [next-player-name phase hand-cards possible-cards possible-actions]} game]
+     (when (and auto-play? (= player-name next-player-name))
+       (when-let [bot-action (bot/choose-bot-action {:phase phase
+                                                     :hand-cards hand-cards
+                                                     :possible-cards possible-cards
+                                                     :possible-actions possible-actions})]
+         (re-frame/dispatch bot-action))))))
 
 (re-frame/reg-fx
  :new-events
  (fn [{:keys [new-events]}]
-   (let [round-won-player (-> (filter #(= "round-won" (:event-type %)) (:marjapussi new-events))
-                              first
-                              :player)
+   (let [round-won-player (round-won-player-from-events (:marjapussi new-events))
          user-delay (if round-won-player
                       2500
                       100)]
