@@ -223,12 +223,12 @@
                                                                                           [:img {:on-click #(re-frame/dispatch [:player-card index])
                                                                                                  :style border-style
                                                                                                  :src (card-url card)
-                                                                                                 :width "170px"
+                                                                                                 :width "160px"
                                                                                                  :height "auto"}]]))]
                      [:h3 "Tikin kortit"]
                      [:ul#trick-cards {:style {:display "flex"}}
                       (for [{:keys [card player]} trick-cards]
-                        ^{:key (str "trick-" (translation/format-card card :genitive))} [:li {:style {:width "170px"}}
+                        ^{:key (str "trick-" (translation/format-card card :genitive))} [:li {:style {:width "160px"}}
                                                                                          [:div (if (= player round-won-player)
                                                                                                  [:b player]
                                                                                                  player)]
