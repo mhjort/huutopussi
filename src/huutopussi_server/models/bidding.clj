@@ -85,7 +85,6 @@
   (let [bid-winner-id (first (get-non-folded-player-ids game-model))
         next-player-id bid-winner-id
         target-player-id (util/team-mate-for-player player-id teams)
-        ;TODO Do not use index for selecting cards, this is error prone
         target-player-hand-cards (vec (concat (get-in players [target-player-id :hand-cards]) cards-to-give))
         possible-actions (if (= player-id bid-winner-id)
                            [{:id "set-target-score"
@@ -100,7 +99,6 @@
   ;TODO Emit new event
     (-> game-model
         (assoc-in [:players player-id :possible-actions] [])
-        ;TODO Do not use index for selecting cards, this is error prone
         (update-in [:players player-id :hand-cards] #(vec (remove (set cards-to-give) %)))
         (assoc :next-player-id next-player-id)
         ;TODO sort cards again somewhere
@@ -108,11 +106,16 @@
         (assoc-in [:players next-player-id :possible-actions] possible-actions)
         (update :events conj {:event-type :cards-given :player player-id :value (count cards-to-give)}))))
 
+;TODO Do this already in handler/filter
+;When cards are posted in json suit is deserialized as a string. It should be keyword
+(defn- format-deserialized-cards [cards]
+  (mapv #(update % :suit keyword) cards))
+
 (defn tick [game-model {:keys [action-type player-id value]}]
   (case action-type
     :place-bid (place-bid game-model player-id value)
     :fold (fold game-model player-id)
-    :give-cards (give-cards game-model player-id value)
+    :give-cards (give-cards game-model player-id (format-deserialized-cards value))
     :set-target-score (set-target-score game-model player-id value)))
 
 (defn init [{:keys [teams next-player-id players]} options]
