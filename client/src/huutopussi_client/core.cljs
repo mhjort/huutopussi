@@ -177,6 +177,25 @@
           ""
           scores))
 
+(defn- show-game-actions [{:keys [trick-cards round-won-player phase]}]
+  (when phase
+    (case (keyword phase)
+      :marjapussi
+      [:div
+       [:h3 "Tikin kortit"]
+       [:ul#trick-cards {:style {:display "flex"}}
+        (for [{:keys [card player]} trick-cards]
+          ^{:key (str "trick-" (translation/format-card card :genitive))} [:li {:style {:width "160px"}}
+                                                                           [:div (if (= player round-won-player)
+                                                                                   [:b player]
+                                                                                   player)]
+                                                                           [:img {:src (card-url card)
+                                                                                  :width "100%"
+                                                                                  :height "auto"}]])]]
+      :bidding [:div
+                [:h3 "Huudot"]]
+      )))
+
 (defn- show-match-view []
   (let [player-name @(re-frame/subscribe [:player-name])
         {:keys [trick-cards waiting-for-player-action? round-won-player]} @(re-frame/subscribe [:client])
@@ -225,16 +244,9 @@
                                                                                                  :src (card-url card)
                                                                                                  :width "160px"
                                                                                                  :height "auto"}]]))]
-                     [:h3 "Tikin kortit"]
-                     [:ul#trick-cards {:style {:display "flex"}}
-                      (for [{:keys [card player]} trick-cards]
-                        ^{:key (str "trick-" (translation/format-card card :genitive))} [:li {:style {:width "160px"}}
-                                                                                         [:div (if (= player round-won-player)
-                                                                                                 [:b player]
-                                                                                                 player)]
-                                                                                         [:img {:src (card-url card)
-                                                                                                :width "100%"
-                                                                                                :height "auto"}]])]]
+                     (show-game-actions {:phase phase
+                                         :trick-cards trick-cards
+                                         :round-won-player round-won-player})]
      (events-view phase))))
 
 (defn- show-match-status []
