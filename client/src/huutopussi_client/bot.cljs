@@ -19,11 +19,23 @@
     (println "BOT: Playing action" id "with first possible value" first-possible-value)
     [:player-action {:id id :value first-possible-value}]))
 
+;TODO We should give best cards only for bidding winner
+(defn- choose-value-with-highest-points [possible-cards]
+  (let [map-by-sum-points (reduce (fn [m cards]
+                                    (assoc m (reduce + (map :points cards)) cards))
+                                  {}
+                                  possible-cards)
+        highest-sum (apply max (keys map-by-sum-points))]
+    (get map-by-sum-points highest-sum)))
+
 (defn- choose-bidding-action [possible-actions]
   ;Bot folds always if possible
   (if-let [fold-action (first (filter #(= "fold" (:id %)) possible-actions))]
     [:player-action fold-action]
-    (run-action-with-first-possible-value (first possible-actions))))
+    (condp = (-> possible-actions first :id)
+      "give-cards" [:player-action {:id "give-cards"
+                                    :value (choose-value-with-highest-points (-> possible-actions first :possible-values))}]
+      (run-action-with-first-possible-value (first possible-actions)))))
 
 (defn- choose-marjapussi-action [{:keys [hand-cards possible-cards possible-actions]}]
   (if (seq possible-actions)
@@ -47,6 +59,16 @@
   ;Player who won the bidding
   (choose-bot-action {:phase "bidding" :possible-actions [{:id "set-target-score"
                                                            :possible-values [50 100]}]})
+
+
+  ;Choose cards with max points
+  (choose-bot-action {:phase "bidding"
+                      :possible-actions [{:id "give-cards"
+                                          :possible-values [[{:suit :hearts :value 15 :text "A" :points 11}
+                                                             {:suit :hearts :value 6 :text "6" :points 0}]
+                                                            [{:suit :hearts :value 14 :text "10" :points 10}
+                                                             {:suit :hearts :value 13 :text "K" :points 4}]]}]})
+
 
   ;Player with possible trump actions
   (choose-bot-action {:phase "marjapussi"
