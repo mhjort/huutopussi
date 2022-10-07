@@ -78,8 +78,8 @@
 
 (defn- already-declared-trump-suits [events]
   (->> events
-      (filter #(= :trump-declared (:event-type %)))
-      (map #(get-in % [:value :suit]))))
+       (filter #(= :trump-declared (:event-type %)))
+       (map #(get-in % [:value :suit]))))
 
 (defn- declare-trump-action [suit]
   {:id (str "declare-trump:" (name suit))
@@ -101,20 +101,21 @@
   (let [player-hand-cards (get-in game-model [:players player-id :hand-cards])
         team-mate-player-id (util/team-mate-for-player player-id teams)
         possible-player-trumps (remove (set (already-declared-trump-suits events)) (possible-trumps player-hand-cards))
-        possible-player-half-trumps (remove (set (already-declared-trump-suits events)) (possible-half-trumps player-hand-cards))]
-    (if (seq possible-player-trumps)
-      (map (fn [suit] (declare-trump-action suit))
-           possible-player-trumps)
-      (let [previous-event (last events)
-            ask-for-trump-actions (when (< 1 (count player-hand-cards)) ;At least two cards left
-                                    [(ask-for-trump-action team-mate-player-id)])
-            ;TODO Check that player can ask same question only once
-            ask-for-half-trump-actions (map (fn [suit]
-                                              (ask-for-half-trump-action suit team-mate-player-id))
-                                            possible-player-half-trumps)]
-        (if (= :round-won (:event-type previous-event))
-          (concat ask-for-trump-actions ask-for-half-trump-actions)
-          [])))))
+        possible-player-half-trumps (remove (set (already-declared-trump-suits events)) (possible-half-trumps player-hand-cards))
+        trumps-to-declare (when (seq possible-player-trumps)
+                            (map (fn [suit] (declare-trump-action suit))
+                                 possible-player-trumps))
+        previous-event (last events)
+        ask-for-trump-actions (when (< 1 (count player-hand-cards)) ;At least two cards left
+                                [(ask-for-trump-action team-mate-player-id)])
+        ;TODO Check that player can ask same question only once
+        ask-for-half-trump-actions (map (fn [suit]
+                                          (ask-for-half-trump-action suit team-mate-player-id))
+                                        possible-player-half-trumps)]
+    (if (= :round-won (:event-type previous-event))
+      (or trumps-to-declare
+          (concat trumps-to-declare ask-for-trump-actions ask-for-half-trump-actions))
+      [])))
 
 (defn- play-card [{:keys [next-player-id players current-trump-suit] :as game-model} {:keys [card]}]
   (let [reset-possible-actions #(assoc % :possible-actions [])
@@ -123,7 +124,7 @@
                                (update :current-trick-cards conj {:player next-player-id :card card})
                                (update :events conj {:event-type :card-played :player next-player-id :value {:card card}})
                                (update-in [:players next-player-id :hand-cards] (fn [hand-cards]
-                                                                                     (vec (remove #(= card %) hand-cards)))))
+                                                                                  (vec (remove #(= card %) hand-cards)))))
         possible-cards-for-next-player (fn [next-player current-trick-cards]
                                          (possible-cards (mapv :card current-trick-cards)
                                                          (get-in updated-game-model [:players next-player :hand-cards])
@@ -131,7 +132,7 @@
         trick-ended? (= (count players) (count (:current-trick-cards updated-game-model)))
         ;TODO Better check for this
         phase-ended? (and trick-ended?
-                         (empty? (get-in updated-game-model [:players next-player-id :hand-cards])))]
+                          (empty? (get-in updated-game-model [:players next-player-id :hand-cards])))]
     (if trick-ended?
       (let [win-card (winning-card (map :card (:current-trick-cards updated-game-model)) current-trump-suit)
             win-player (-> (filter #(= win-card (:card %)) (:current-trick-cards updated-game-model))
@@ -146,7 +147,7 @@
                                   (assoc-in [:players win-player :possible-cards] (possible-cards-for-next-player win-player [])))]
         (assoc-in trick-ended-model [:players win-player :possible-actions] (possible-actions-for-player win-player trick-ended-model)))
       (let [next-player-id (util/select-next-player-id (get-in updated-game-model [:players next-player-id :player-index])
-                                                  (:players updated-game-model))]
+                                                       (:players updated-game-model))]
         (-> updated-game-model
             (assoc :phase-ended? phase-ended?)
             (assoc :next-player-id next-player-id)

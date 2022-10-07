@@ -127,6 +127,41 @@
                 :player "a"
                 :value {:answer false}} (last (:events updated-model))))))))
 
+(deftest only-one-trump-can-be-made-in-one-round
+  (let [ca-card (pick-card deck "A" :clubs)
+        dj-card (pick-card deck "J" :diamonds)
+        d6-card (pick-card deck "6" :diamonds)
+        d7-card (pick-card deck "7" :diamonds)
+        da-card (pick-card deck "A" :diamonds)
+        c6-card (pick-card deck "6" :clubs)
+        h6-card (pick-card deck "6" :hearts)
+        h7-card (pick-card deck "7" :hearts)
+        players (-> initial-players
+                    (assoc-in ["a" :hand-cards] [ca-card
+                                                 dj-card
+                                                 (pick-card deck "K" :hearts)
+                                                 (pick-card deck "Q" :hearts)
+                                                 (pick-card deck "K" :diamonds)
+                                                 (pick-card deck "Q" :diamonds)])
+                    (assoc-in ["b" :hand-cards] [d6-card d7-card])
+                    (assoc-in ["c" :hand-cards] [da-card c6-card])
+                    (assoc-in ["d" :hand-cards] [h6-card h7-card]))
+        game-model (-> (model/init {:teams teams :next-player-id "a" :players players} {})
+                       (model/tick {:action-type :play-card :card ca-card})
+                       (model/tick {:action-type :play-card :card d6-card})
+                       (model/tick {:action-type :play-card :card c6-card})
+                       (model/tick {:action-type :play-card :card h6-card}))]
+    (is (= [{:id "declare-trump:hearts"
+             :action-type :declare-trump
+             :suit :hearts}
+            {:id "declare-trump:diamonds"
+             :action-type :declare-trump
+             :suit :diamonds}]
+           (get-in game-model [:players "a" :possible-actions])))
+    (let [updated-model (model/tick game-model {:action-type :declare-trump :suit :hearts :player-id "a"})]
+      (is (= :hearts (:current-trump-suit updated-model)))
+      (is (= [] (get-in updated-model [:players "a" :possible-actions]))))))
+
 (defn- play-first-action-if-possible [{:keys [next-player-id players] :as game-model}]
   (if-let [{:keys [action-type suit]} (-> players (get-in [next-player-id :possible-actions]) first)]
     (case action-type
