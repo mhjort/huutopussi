@@ -264,7 +264,7 @@
                              :hand-cards [c-card]
                              :possible-actions [{:id "give-cards"
                                                  :action-type :give-cards
-                                                 :possible-values [[0]]}]}
+                                                 :possible-values [[c-card]]}]}
                         "d" {:player-id "d"
                              :player-index 3
                              :hand-cards [d-card]
@@ -274,7 +274,7 @@
       (let [given-1-time-game-model (model/tick game-model {:id "give-cards"
                                                             :action-type :give-cards
                                                             :player-id "c"
-                                                            :value [0]})]
+                                                            :value [c-card]})]
         (is (= {:current-round 0
                 :next-player-id "a"
                 :phase :bidding
@@ -294,7 +294,7 @@
                                :hand-cards [a-card c-card]
                                :possible-actions [{:id "give-cards"
                                                    :action-type :give-cards
-                                                   :possible-values [[0] [1]]}]}
+                                                   :possible-values [[a-card] [c-card]]}]}
                           "b" {:player-id "b"
                                :player-index 1
                                :hand-cards [b-card]
@@ -312,7 +312,7 @@
           (let [given-2-times-game-model (model/tick given-1-time-game-model {:id "give-cards"
                                                                               :action-type :give-cards
                                                                               :player-id "a"
-                                                                              :value [0]})]
+                                                                              :value [a-card]})]
             (is (= {:current-round 0
                     :next-player-id "a"
                     :phase :bidding

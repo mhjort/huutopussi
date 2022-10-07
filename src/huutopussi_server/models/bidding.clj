@@ -43,8 +43,8 @@
         (update :events conj {:event-type :bid-placed :player player-id :value bid-value})
         (assoc :highest-bid bid-value))))
 
-(defn- possible-card-indexes-to-give [cards number-of-cards-to-give]
-  (combo/combinations (range (count cards)) number-of-cards-to-give))
+(defn- possible-cards-to-give [cards number-of-cards-to-give]
+  (combo/combinations cards number-of-cards-to-give))
 
 (defn- fold [{:keys [highest-bid players teams options] :as game-model} player-id]
   (let [updated-game-model (update game-model :events conj {:event-type :folded :player player-id})
@@ -63,8 +63,8 @@
         possible-actions (if bidding-ended?
                            [{:id "give-cards"
                              :action-type :give-cards
-                             :possible-values (possible-card-indexes-to-give next-player-hand-cards
-                                                                             (:number-of-cards-swapped options))}]
+                             :possible-values (possible-cards-to-give next-player-hand-cards
+                                                                      (:number-of-cards-swapped options))}]
                            [{:id "place-bid"
                              :action-type :place-bid
                              :possible-values (range (+ 5 highest-bid)
@@ -81,11 +81,10 @@
 ;TODO Read max score from options
 (def possible-target-scores (range 50 420 5))
 
-(defn- give-cards [{:keys [highest-bid teams players options] :as game-model} player-id card-indexes-to-give]
+(defn- give-cards [{:keys [highest-bid teams players options] :as game-model} player-id cards-to-give]
   (let [bid-winner-id (first (get-non-folded-player-ids game-model))
         next-player-id bid-winner-id
         target-player-id (util/team-mate-for-player player-id teams)
-        cards-to-give (map #(get-in players [player-id :hand-cards %]) card-indexes-to-give)
         ;TODO Do not use index for selecting cards, this is error prone
         target-player-hand-cards (vec (concat (get-in players [target-player-id :hand-cards]) cards-to-give))
         possible-actions (if (= player-id bid-winner-id)
@@ -96,8 +95,8 @@
                                                      5)}]
                            [{:id "give-cards"
                              :action-type :give-cards
-                             :possible-values (possible-card-indexes-to-give target-player-hand-cards
-                                                                             (:number-of-cards-swapped options))}])]
+                             :possible-values (possible-cards-to-give target-player-hand-cards
+                                                                      (:number-of-cards-swapped options))}])]
   ;TODO Emit new event
     (-> game-model
         (assoc-in [:players player-id :possible-actions] [])
@@ -107,7 +106,7 @@
         ;TODO sort cards again somewhere
         (assoc-in [:players target-player-id :hand-cards] target-player-hand-cards)
         (assoc-in [:players next-player-id :possible-actions] possible-actions)
-        (update :events conj {:event-type :cards-given :player player-id :value (count card-indexes-to-give)}))))
+        (update :events conj {:event-type :cards-given :player player-id :value (count cards-to-give)}))))
 
 (defn tick [game-model {:keys [action-type player-id value]}]
   (case action-type
