@@ -4,10 +4,10 @@
   (let [idx? (fn [i a] (when (= x a) i))]
     (first (keep-indexed idx? coll))))
 
-(defn- play-first-possible-card [hand-cards possible-cards]
-  (let [first-possible-card (first possible-cards)]
-    (println "BOT: Playing first card" first-possible-card)
-    [:player-card (index-of first-possible-card hand-cards)]))
+(defn- play-random-possible-card [hand-cards possible-cards]
+  (let [card (rand-nth possible-cards)]
+    (println "BOT: Playing random card" card)
+    [:player-card (index-of card hand-cards)]))
 
 (defn- run-random-possible-action [possible-actions]
   (let [action (first (shuffle possible-actions))]
@@ -41,7 +41,7 @@
   (if (seq possible-actions)
     (run-random-possible-action possible-actions)
     (when (seq possible-cards)
-      (play-first-possible-card hand-cards possible-cards))))
+      (play-random-possible-card hand-cards possible-cards))))
 
 (defn choose-bot-action [{:keys [phase possible-actions] :as params}]
   (case phase
