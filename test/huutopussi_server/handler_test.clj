@@ -101,6 +101,9 @@
     (is (= 200 status))
     body))
 
+(defn- fetch-first-hand-card []
+  (-> (get-status "match-1" "player-1") :hand-cards first))
+
 (deftest playing-real-match
   (reset! matches {"match-1" match-with-four-players})
   (testing "status when match has started"
@@ -120,8 +123,8 @@
     (run-action "match-1" "player-2" {:action-type "fold" :id "fold"})
     (run-action "match-1" "player-3" {:action-type "fold" :id "fold"})
     (run-action "match-1" "player-4" {:action-type "fold" :id "fold"})
-    (run-action "match-1" "player-3" {:action-type "give-cards" :id "give-cards" :value [0]})
-    (run-action "match-1" "player-1" {:action-type "give-cards" :id "give-cards" :value [0]})
+    (run-action "match-1" "player-3" {:action-type "give-cards" :id "give-cards" :value [(fetch-first-hand-card)]})
+    (run-action "match-1" "player-1" {:action-type "give-cards" :id "give-cards" :value [(fetch-first-hand-card)]})
     (run-action "match-1" "player-1" {:action-type "set-target-score" :id "set-target-score" :value 100})
     (let [status (get-status "match-1" "player-1")]
       (is (= {:scores {:Team1 {:current 0 :target 100}
