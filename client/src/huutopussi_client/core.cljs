@@ -193,8 +193,7 @@
                                                                                   :width "100%"
                                                                                   :height "auto"}]])]]
       :bidding [:div
-                [:h3 "Huudot"]]
-      )))
+                [:h3 "Huudot"]])))
 
 (defn- show-match-view []
   (let [player-name @(re-frame/subscribe [:player-name])
@@ -325,6 +324,9 @@
 (defn- contains-event-of-type? [event-type events]
   (some #(= event-type (:event-type %)) events))
 
+(defn- contains-action-with-id? [id actions]
+  (some #(= id (:id %)) actions))
+
 (re-frame/reg-event-fx
  :game-status
  (fn [{:keys [db]} [_ game]]
@@ -340,31 +342,40 @@
        round-won-player (assoc-in [:db :client :waiting-for-player-action?] false)
        new-events (assoc :new-events {:new-events new-events})))))
 
+(defn- handle-card-chosen-in-bidding [db card-index]
+  (if (contains-action-with-id? "give-cards" (-> db :game :possible-actions))
+    (let [hand-cards (-> db :game :hand-cards)
+          updated-card-indexes (distinct (conj (:chosen-card-indexes db) card-index))
+          ;TODO Do not hardcode number of cards to give
+          all-cards-chosen? (= 3 (count updated-card-indexes))
+          chosen-card-indexes (if all-cards-chosen?
+                                []
+                                updated-card-indexes)]
+      (cond-> {:db (assoc db :chosen-card-indexes chosen-card-indexes)}
+        ;TODO Do not hardcode number of cards to give
+        (= 3 (count updated-card-indexes)) (assoc-in [:db :client :waiting-for-player-action?] false)
+        (= 3 (count updated-card-indexes)) (assoc :run-player-action {:match-id (-> db :match :id)
+                                                                      :player-id (:player-id db)
+                                                                      :action-id "give-cards"
+                                                                      :action-value (map #(nth hand-cards %) updated-card-indexes)})))
+    {}))
+
+(defn- handle-card-chosen-in-marjapussi [db card-index]
+  (let [hand-cards (-> db :game :hand-cards)
+        card-to-play (nth hand-cards card-index)
+        possible-cards (-> db :game :possible-cards)
+        is-possible-card? (boolean (some #{card-to-play} possible-cards))]
+    (if is-possible-card?
+      {:play-card {:match-id (-> db :match :id) :player-id (:player-id db) :card-index card-index}
+       :db (assoc-in db [:client :waiting-for-player-action?] false)}
+      {:show-error {:message (str "Kortti " card-to-play " ei ole yksi pelattavista korteista " :possible-cards)}})))
+
 (re-frame/reg-event-fx
  :player-card
  (fn [{:keys [db]} [_ card-index]]
-   (let [hand-cards (-> db :game :hand-cards)]
-     (case (-> db :game :phase)
-       "bidding" (let [updated-card-indexes (distinct (conj (:chosen-card-indexes db) card-index))
-                       ;TODO Do not hardcode number of cards to give
-                       all-cards-chosen? (= 3 (count updated-card-indexes))
-                       chosen-card-indexes (if all-cards-chosen?
-                                             []
-                                             updated-card-indexes)]
-                   (cond-> {:db (assoc db :chosen-card-indexes chosen-card-indexes)}
-                     ;TODO Do not hardcode number of cards to give
-                     (= 3 (count updated-card-indexes)) (assoc-in [:db :client :waiting-for-player-action?] false)
-                     (= 3 (count updated-card-indexes)) (assoc :run-player-action {:match-id (-> db :match :id)
-                                                                                   :player-id (:player-id db)
-                                                                                   :action-id "give-cards"
-                                                                                   :action-value (map #(nth hand-cards %) updated-card-indexes)})))
-       "marjapussi" (let [card-to-play (nth hand-cards card-index)
-                          possible-cards (-> db :game :possible-cards)
-                          is-possible-card? (boolean (some #{card-to-play} possible-cards))]
-                      (if is-possible-card?
-                        {:play-card {:match-id (-> db :match :id) :player-id (:player-id db) :card-index card-index}
-                         :db (assoc-in db [:client :waiting-for-player-action?] false)}
-                        {:show-error {:message (str "Kortti " card-to-play " ei ole yksi pelattavista korteista " :possible-cards)}}))))))
+   (case (-> db :game :phase)
+     "bidding" (handle-card-chosen-in-bidding db card-index)
+     "marjapussi" (handle-card-chosen-in-marjapussi db card-index))))
 
 (re-frame/reg-event-fx
  :player-action
