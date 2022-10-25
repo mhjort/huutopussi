@@ -20,7 +20,6 @@
     [:player-action {:id id :value first-possible-value}]))
 
 (defn- weighted-sum [acc {:keys [text points] :as card}]
-  (println acc card)
   (if card
     (+ acc
        points
