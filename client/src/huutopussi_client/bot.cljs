@@ -19,10 +19,20 @@
     (println "BOT: Playing action" id "with first possible value" first-possible-value)
     [:player-action {:id id :value first-possible-value}]))
 
-;TODO We should give best cards only for bidding winner
+(defn- weighted-sum [acc {:keys [text points] :as card}]
+  (println acc card)
+  (if card
+    (+ acc
+       points
+       (if (or (= text "Q")
+               (= text "K"))
+         10
+         0))
+    acc))
+
 (defn- choose-value-with-highest-points [possible-cards]
   (let [map-by-sum-points (reduce (fn [m cards]
-                                    (assoc m (reduce + (map :points cards)) cards))
+                                    (assoc m (reduce weighted-sum 0 cards) cards))
                                   {}
                                   possible-cards)
         highest-sum (apply max (keys map-by-sum-points))]
