@@ -57,6 +57,19 @@
                      {:scores initial-scores}
                      events))))
 
+(defn- tricks-by-team [{:keys [teams events]}]
+  (let [initial-tricks (reduce-kv (fn [m team _]
+                                    (assoc m team 0))
+                                  {}
+                                  teams)]
+    (reduce (fn [m {:keys [event-type player]}]
+              (if (= :round-won event-type)
+                (let [team (get (util/teams-by-player teams) player)]
+                  (update m team inc))
+                m))
+            initial-tricks
+            events)))
+
 (defn- same-suit-king-or-queen-count [cards]
   (let [king-or-queen? #(some #{%} #{12 13})]
     (->> cards
@@ -205,7 +218,9 @@
                         :declare-trump (declare-trump game-model action)
                         :ask-for-half-trump (ask-for-half-trump game-model action)
                         :ask-for-trump (ask-for-trump game-model action))]
-    (assoc updated-model :scores (calculate-scores updated-model))))
+    (-> updated-model
+        (assoc :scores (calculate-scores updated-model))
+        (assoc :tricks (tricks-by-team updated-model)))))
 
 (defn init [{:keys [teams next-player-id players]} _]
   (let [next-player-hand-cards (get-in players [next-player-id :hand-cards])
@@ -219,4 +234,6 @@
                         :players players}
                        (assoc-in [:players next-player-id :possible-actions] [])
                        (assoc-in [:players next-player-id :possible-cards] next-player-hand-cards))]
-    (assoc game-model :scores (calculate-scores game-model))))
+    (-> game-model
+        (assoc :scores (calculate-scores game-model))
+        (assoc :tricks (tricks-by-team game-model)))))
