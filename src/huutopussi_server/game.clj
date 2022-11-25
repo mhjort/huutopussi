@@ -3,14 +3,13 @@
             [clojure.core.async :refer [chan go go-loop >! alts!]]
             [clojure.tools.logging :as log]))
 
-(defn team-scores [{:keys [scores] :as game-model}]
-  (reduce-kv (fn [m team score]
-               (let [target-score (get-in game-model [:teams team :target-score])]
-                 (cond-> m
-                   true (assoc-in [team :current] score)
-                   target-score (assoc-in [team :target] target-score))))
+(defn- team-scores [{:keys [teams]}]
+  (reduce-kv (fn [m team {:keys [score target-score]}]
+               (cond-> m
+                 true (assoc-in [team :current] score)
+                 target-score (assoc-in [team :target] target-score)))
              {}
-             scores))
+             teams))
 
 (defn get-game-status [{:keys [status game-model id events]} player-id]
   (when-not (= :started status)

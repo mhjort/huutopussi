@@ -46,7 +46,7 @@
 
 (defn- update-total-score [matches id]
   (let [{:keys [game-model teams]} (get-match matches id)
-        updated-teams (scoring/update-team-scores teams (game/team-scores game-model))]
+        updated-teams (scoring/update-team-scores teams (:teams game-model))]
     (swap! matches #(update % id assoc :teams updated-teams))))
 
 (defn- update-match-state! [previous-state {:keys [phase events] :as game-model}]
