@@ -3,7 +3,7 @@
             [cheshire.core :as cheshire]
             [ring.mock.request :as mock]
             [huutopussi-server.match :as match]
-            [huutopussi-server.handler :refer [create-app]]))
+            [huutopussi-server.handler :refer [create-dev-app]]))
 
 (def matches (atom {}))
 
@@ -18,17 +18,17 @@
 
 (deftest test-app
   (testing "index-html redirect"
-    (let [response ((create-app (atom {})) (mock/request :get "/"))]
+    (let [response ((create-dev-app (atom {})) (mock/request :get "/"))]
       (is (= 302 (:status response)))
       (is (= "" (:body response) ""))))
 
   (testing "not-found route"
-    (let [response ((create-app (atom {})) (mock/request :get "/invalid"))]
+    (let [response ((create-dev-app (atom {})) (mock/request :get "/invalid"))]
       (is (= (:status response) 404)))))
 
 (defn request
   ([method url request-body]
-   (let [app (create-app matches)
+   (let [app (create-dev-app matches)
          {:keys [body status]} (cond-> (mock/request method url)
                                  request-body (mock/json-body request-body)
                                  true app)]

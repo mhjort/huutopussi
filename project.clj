@@ -11,6 +11,7 @@
                  [org.clojure/math.combinatorics "0.1.6"]
                  [ring/ring-defaults "0.3.3"]
                  [ring/ring-json "0.5.1"]
+                 [ring/ring-devel "1.9.6"]
                  [ring-cors "0.1.13"]]
   :plugins [[lein-ring "0.12.5"]]
   :ring {:handler huutopussi-server.handler/prod-app}
