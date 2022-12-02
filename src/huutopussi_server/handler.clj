@@ -6,6 +6,7 @@
             [ring.adapter.jetty :refer [run-jetty]]
             [ring.util.response :as resp]
             [clojure.tools.logging :as log]
+            [ring.middleware.reload :refer [wrap-reload]]
             [ring.middleware.cors :refer [wrap-cors]]
             [ring.middleware.json :refer [wrap-json-response wrap-json-body]]
             [ring.middleware.defaults :refer [wrap-defaults api-defaults]]))
@@ -46,6 +47,7 @@
                             (fn [request]
                               (handler (assoc request :matches matches))))]
     (-> #'app-routes
+        (wrap-reload)
         (wrap-with-matches)
         ;Note! This should be first because middleware sets json content type header
         ;only if there are no other content type headers already present
@@ -57,15 +59,19 @@
         (wrap-json-body {:keywords? true})
         (wrap-exception-handling))))
 
+
 (defonce production-matches (atom {}))
 (defonce prod-app (create-app production-matches))
+
+(defn create-dev-app [matches]
+  (wrap-reload (create-app matches)))
 
 (defn reset []
   (match/stop-match-loops production-matches)
   (reset! production-matches {}))
 
 (defn start []
-  (run-jetty prod-app {:join? false :port 3000}))
+  (run-jetty (create-dev-app production-matches) {:join? false :port 3000}))
 
 ;For REPL Driven development
 (comment

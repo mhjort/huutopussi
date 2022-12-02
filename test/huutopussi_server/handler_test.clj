@@ -3,7 +3,7 @@
             [cheshire.core :as cheshire]
             [ring.mock.request :as mock]
             [huutopussi-server.match :as match]
-            [huutopussi-server.handler :refer [create-app]]))
+            [huutopussi-server.handler :refer [create-dev-app]]))
 
 (def matches (atom {}))
 
@@ -18,17 +18,17 @@
 
 (deftest test-app
   (testing "index-html redirect"
-    (let [response ((create-app (atom {})) (mock/request :get "/"))]
+    (let [response ((create-dev-app (atom {})) (mock/request :get "/"))]
       (is (= 302 (:status response)))
       (is (= "" (:body response) ""))))
 
   (testing "not-found route"
-    (let [response ((create-app (atom {})) (mock/request :get "/invalid"))]
+    (let [response ((create-dev-app (atom {})) (mock/request :get "/invalid"))]
       (is (= (:status response) 404)))))
 
 (defn request
   ([method url request-body]
-   (let [app (create-app matches)
+   (let [app (create-dev-app matches)
          {:keys [body status]} (cond-> (mock/request method url)
                                  request-body (mock/json-body request-body)
                                  true app)]
@@ -177,6 +177,8 @@
                    [{:model-init (fn [{:keys [next-player-id]} _]
                                    (swap! started-phase1-rounds inc)
                                    {:next-player-id next-player-id
+                                    :teams {:Team1 {:score 0}
+                                            :Team2 {:score 0 :target-score 2}}
                                     :phase :phase1
                                     :phase-ended? false})
                      :model-tick (fn [game-model _]
@@ -184,17 +186,19 @@
                                           :phase-ended? true
                                           :next-player-id "player-2"
                                           :events [{:event-type :phase1-event}]))}
-                    {:model-init (fn [{:keys [next-player-id]} _]
+                    {:model-init (fn [{:keys [teams next-player-id]} _]
                                    (swap! started-phase2-rounds inc)
                                    {:next-player-id next-player-id
-                                    :scores {:Team1 0 :Team2 0}
                                     :players {"player-2" {:possible-actions [{:id "continue-game"}
                                                                              {:id "end-game"}]}}
                                     :phase :phase2
+                                    :teams (merge-with into teams
+                                                       {:Team1 {:tricks 5}
+                                                        :Team2 {:tricks 4}})
                                     :phase-ended? false})
                      :model-tick (fn [game-model {:keys [id]}]
                                    (-> game-model
-                                       (update-in [:scores :Team1] inc)
+                                       (update-in [:teams :Team1 :score] inc)
                                        (assoc :events [{:event-type :phase2-event}])
                                        (assoc :phase-ended? (= "end-game" id))))}]
                    {:time-before-starting-next-round 10
@@ -221,7 +225,7 @@
       (run-action "match-1" "player-2" {:id "end-game" :action-type :dummy})
       (is (= 2 @started-phase1-rounds))
       (is (= {:Team1 {:total-score 2 :players ["player-1-name" "player-3-name"]}
-              :Team2 {:total-score 0 :players ["player-2-name" "player-4-name"]}}
+              :Team2 {:total-score -2 :players ["player-2-name" "player-4-name"]}}
              (:teams (get-status "match-1" "player-1")))))
     (testing "match ends when team1 has enough points"
       (run-action "match-1" "player-1" {:id "set-target-score" :action-type :dummy})
@@ -230,5 +234,5 @@
       (is (= 2 @started-phase1-rounds))
       (is (= "Team1" (:winning-team (get-status "match-1" "player-1"))))
       (is (= {:Team1 {:total-score 3 :players ["player-1-name" "player-3-name"]}
-              :Team2 {:total-score 0 :players ["player-2-name" "player-4-name"]}}
+              :Team2 {:total-score -4 :players ["player-2-name" "player-4-name"]}}
              (:teams (get-status "match-1" "player-1")))))))

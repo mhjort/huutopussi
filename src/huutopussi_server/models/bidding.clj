@@ -119,17 +119,18 @@
     :set-target-score (set-target-score game-model player-id value)))
 
 (defn init [{:keys [teams next-player-id players]} options]
-  {:teams teams
+  {:teams (reduce-kv (fn [m team values]
+                       (assoc m
+                              team
+                              (assoc values
+                                     :score 0)))
+                     {}
+                     teams)
    :options options
    :players (assoc-in players [next-player-id :possible-actions] [{:id "place-bid"
                                                                    :action-type :place-bid
                                                                    :possible-values possible-target-scores}])
    :next-player-id next-player-id
-   ;TODO Maybe this should not be set in bidding phase?
-   :scores (reduce-kv (fn [m team _]
-                        (assoc m team 0))
-                      {}
-                      teams)
    ;TODO Maybe this should not be set in bidding phase?
    :current-round 0
    :events []

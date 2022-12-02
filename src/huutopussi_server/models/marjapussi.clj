@@ -3,7 +3,7 @@
             [huutopussi-server.util :as util]
             [medley.core :as medley]))
 
-(defn winning-card [cards trump-suit]
+(defn- winning-card [cards trump-suit]
   (let [round-suit (:suit (first cards))
         suit-matches #(= %1 (:suit %2))
         trump-suit-cards (if trump-suit
@@ -14,7 +14,7 @@
                           (filter (partial suit-matches round-suit) cards))]
     (first (sort-by :value #(compare %2 %1) potential-cards))))
 
-(defn possible-cards [round-cards player-cards trump-suit]
+(defn- possible-cards [round-cards player-cards trump-suit]
   (let [round-suit (:suit (first round-cards))
         winning-card (winning-card round-cards trump-suit)
         trump-card-played? (= trump-suit (:suit winning-card))
@@ -35,27 +35,53 @@
                                trump-suit-cards)
       :else player-cards)))
 
-(defn calculate-scores [{:keys [events teams]}]
+(defn- calculate-scores [{:keys [events teams]}]
   (let [initial-scores (reduce-kv (fn [m team _]
-                                    (assoc m team 0))
+                                    (assoc m team {:score 0}))
                                   {}
                                   teams)]
-    (:scores (reduce (fn [m {:keys [event-type value player]}]
-                       (let [team (get (util/teams-by-player teams) player)]
-                         (condp = event-type
-                           :card-played (update m :cards conj (:card value))
-                           :round-won (let [extra-trick-points (if (:last-round? value)
-                                                                 20
-                                                                 0)
-                                            trick-points (+ extra-trick-points
-                                                            (reduce + (map :points (:cards m))))]
-                                        (-> (assoc m :cards [])
-                                            (update-in [:scores team] + trick-points)))
-                           :trump-declared (let [trump-points (get-in deck/all-suits [(:suit value) :trump-points])]
-                                             (update-in m [:scores team] + trump-points))
-                           m)))
-                     {:scores initial-scores}
-                     events))))
+    (select-keys
+     (reduce (fn [m {:keys [event-type value player]}]
+               (let [team (get (util/teams-by-player teams) player)]
+                 (condp = event-type
+                   :card-played (update m :cards conj (:card value))
+                   :round-won (let [extra-trick-points (if (:last-round? value)
+                                                         20
+                                                         0)
+                                    trick-points (+ extra-trick-points
+                                                    (reduce + (map :points (:cards m))))]
+                                (-> (dissoc m :cards)
+                                    (update-in [team :score] + trick-points)))
+                   :trump-declared (let [trump-points (get-in deck/all-suits [(:suit value) :trump-points])]
+                                     (update-in m [team :score] + trump-points))
+                   m)))
+             initial-scores
+             events)
+     (keys teams))))
+
+(calculate-scores {:teams {:Team1 {:players ["a" "c"]}
+                           :Team2 {:players ["b" "d"]}}
+                   :events [{:event-type :card-played
+                             :value {:card {:points 2}}
+                             :player "a"}
+                            {:event-type :round-won
+                             :player "a"}
+                            {:event-type :trump-declared
+                             :value {:suit :hearts}
+                             :player "a"}]})
+
+(defn- tricks-by-team [{:keys [teams events]}]
+  (let [initial-tricks (reduce-kv (fn [m team _]
+                                    (assoc m team {:tricks 0}))
+                                  {}
+                                  teams)]
+    (reduce (fn [m {:keys [event-type player]}]
+              (if (= :round-won event-type)
+                (let [team (get (util/teams-by-player teams) player)]
+                  (update-in m [team :tricks] inc))
+                m))
+            initial-tricks
+            events)))
 
 (defn- same-suit-king-or-queen-count [cards]
   (let [king-or-queen? #(some #{%} #{12 13})]
@@ -205,18 +231,26 @@
                         :declare-trump (declare-trump game-model action)
                         :ask-for-half-trump (ask-for-half-trump game-model action)
                         :ask-for-trump (ask-for-trump game-model action))]
-    (assoc updated-model :scores (calculate-scores updated-model))))
+    (update updated-model :teams #(merge-with into %
+                                              (tricks-by-team updated-model)
+                                              (calculate-scores updated-model)))))
 
 (defn init [{:keys [teams next-player-id players]} _]
   (let [next-player-hand-cards (get-in players [next-player-id :hand-cards])
-        game-model (-> {:current-round 0
-                        :next-player-id next-player-id
-                        :current-trick-cards []
-                        :events []
-                        :phase :marjapussi
-                        :phase-ended? false
-                        :teams teams
-                        :players players}
-                       (assoc-in [:players next-player-id :possible-actions] [])
-                       (assoc-in [:players next-player-id :possible-cards] next-player-hand-cards))]
-    (assoc game-model :scores (calculate-scores game-model))))
+        teams-with-init-values (reduce-kv (fn [m team values]
+                                            (assoc m
+                                                   team
+                                                   (assoc values :tricks 0
+                                                          :score 0)))
+                                          {}
+                                          teams)]
+    (-> {:current-round 0
+         :next-player-id next-player-id
+         :current-trick-cards []
+         :events []
+         :phase :marjapussi
+         :phase-ended? false
+         :teams teams-with-init-values
+         :players players}
+        (assoc-in [:players next-player-id :possible-actions] [])
+        (assoc-in [:players next-player-id :possible-cards] next-player-hand-cards))))

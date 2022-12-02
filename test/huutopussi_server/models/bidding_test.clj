@@ -10,6 +10,10 @@
 (def d-card (pick-card deck "A" :diamonds))
 (def teams {:Team1 {:players ["a" "c"]}
             :Team2 {:players ["b" "d"]}})
+(def teams-with-scores (merge-with into
+                                   teams
+                                   {:Team1 {:score 0}
+                                    :Team2 {:score 0}}))
 (def initial-players {"a" {:player-id "a" :player-index 0 :hand-cards [a-card]}
                       "b" {:player-id "b" :player-index 1 :hand-cards [b-card]}
                       "c" {:player-id "c" :player-index 2 :hand-cards [c-card]}
@@ -23,8 +27,7 @@
             :next-player-id "a"
             :phase :bidding
             :phase-ended? false
-            :teams teams
-            :scores {:Team1 0 :Team2 0}
+            :teams teams-with-scores
             :options {}
             :events []
             :players {"a" {:player-id "a"
@@ -51,8 +54,7 @@
               :next-player-id "b"
               :phase :bidding
               :phase-ended? false
-              :teams teams
-              :scores {:Team1 0 :Team2 0}
+              :teams teams-with-scores
               :highest-bid 60
               :options {}
               :events [{:event-type :bid-placed :player "a" :value 60}]
@@ -79,8 +81,7 @@
                 :next-player-id "c"
                 :phase :bidding
                 :phase-ended? false
-                :teams teams
-                :scores {:Team1 0 :Team2 0}
+                :teams teams-with-scores
                 :highest-bid 60
                 :options {}
                 :events [{:event-type :bid-placed :player "a" :value 60}
@@ -130,8 +131,7 @@
             :next-player-id "c"
             :phase :bidding
             :phase-ended? false
-            :teams teams
-            :scores {:Team1 0 :Team2 0}
+            :teams teams-with-scores
             :highest-bid 80
             :options {}
             :events [{:event-type :bid-placed :player "a" :value 60}
@@ -188,8 +188,7 @@
             :next-player-id "c"
             :phase :bidding
             :phase-ended? false
-            :teams teams
-            :scores {:Team1 0 :Team2 0}
+            :teams teams-with-scores
             :highest-bid 85
             :options {}
             :events [{:event-type :bid-placed :player "a" :value 60}
@@ -242,8 +241,7 @@
               :next-player-id "c"
               :phase :bidding
               :phase-ended? false
-              :teams teams
-              :scores {:Team1 0 :Team2 0}
+              :teams teams-with-scores
               :highest-bid 60
               :options {:number-of-cards-swapped 1}
               :events [{:event-type :bid-placed :player "a" :value 60}
@@ -279,8 +277,7 @@
                 :next-player-id "a"
                 :phase :bidding
                 :phase-ended? false
-                :teams teams
-                :scores {:Team1 0 :Team2 0}
+                :teams teams-with-scores
                 :highest-bid 60
                 :options {:number-of-cards-swapped 1}
                 :events [{:event-type :bid-placed :player "a" :value 60}
@@ -317,8 +314,7 @@
                     :next-player-id "a"
                     :phase :bidding
                     :phase-ended? false
-                    :teams teams
-                    :scores {:Team1 0 :Team2 0}
+                    :teams teams-with-scores
                     :highest-bid 60
                     :options {:number-of-cards-swapped 1}
                     :events [{:event-type :bid-placed :player "a" :value 60}
@@ -357,8 +353,7 @@
                         :phase :bidding
                         :highest-bid 60
                         :phase-ended? true
-                        :teams (assoc-in teams [:Team1 :target-score] 60)
-                        :scores {:Team1 0 :Team2 0}
+                        :teams (assoc-in teams-with-scores [:Team1 :target-score] 60)
                         :options {:number-of-cards-swapped 1}
                         :events [{:event-type :bid-placed :player "a" :value 60}
                                  {:event-type :folded :player "b"}

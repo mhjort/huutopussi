@@ -6,6 +6,7 @@
 
 (def deck (deck/card-deck))
 (def a-card (pick-card deck "A" :hearts))
+(println a-card)
 (def b-card (pick-card deck "A" :clubs))
 (def c-card (pick-card deck "A" :spades))
 (def d-card (pick-card deck "A" :diamonds))
@@ -25,8 +26,10 @@
             :current-trick-cards []
             :phase :marjapussi
             :phase-ended? false
-            :teams teams
-            :scores {:Team1 0 :Team2 0}
+            :teams (merge-with into
+                               teams
+                               {:Team1 {:tricks 0 :score 0}
+                                :Team2 {:tricks 0 :score 0}})
             :events []
             :players {"a" {:player-id "a" :player-index 0 :hand-cards [a-card] :possible-cards [a-card] :possible-actions []}
                       "b" {:player-id "b" :player-index 1 :hand-cards [b-card] :possible-cards [] :possible-actions []}
@@ -43,8 +46,10 @@
             :current-trick-cards [{:card a-card :player "a"}]
             :phase :marjapussi
             :phase-ended? false
-            :teams teams
-            :scores {:Team1 0 :Team2 0}
+            :teams (merge-with into
+                               teams
+                               {:Team1 {:tricks 0 :score 0}
+                                :Team2 {:tricks 0 :score 0}})
             :events [{:event-type :card-played :player "a" :value {:card a-card}}]
             :players {"a" {:player-id "a" :player-index 0 :hand-cards [] :possible-cards [a-card] :possible-actions []}
                       "b" {:player-id "b" :player-index 1 :hand-cards [b-card] :possible-cards [b-card] :possible-actions []}
@@ -66,8 +71,10 @@
             :current-trick-cards []
             :phase :marjapussi
             :phase-ended? true
-            :teams teams
-            :scores {:Team1 64 :Team2 0}
+            :teams (merge-with into
+                               teams
+                               {:Team1 {:tricks 1 :score 64}
+                                :Team2 {:tricks 0 :score 0}})
             :events [{:event-type :card-played :player "a" :value {:card a-card}}
                      {:event-type :card-played :player "b" :value {:card b-card}}
                      {:event-type :card-played :player "c" :value {:card c-card}}
