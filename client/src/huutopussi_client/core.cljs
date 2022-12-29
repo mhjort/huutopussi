@@ -208,12 +208,20 @@
                 current-round] :as game} @(re-frame/subscribe [:game])]
     (list
      ^{:key "scoring-rules"} [:section#scoring-rules-box
-                              [:h4 "Pisteytys"]
+                              [:h5 "Valttipisteet"]
                               [:ul
-                               [:li "Herttavaltti: 100"]
-                               [:li "Ruutuvaltti: 80"]
-                               [:li "Ristivaltti: 60"]
-                               [:li "Patavaltti: 40"]]]
+                               [:li "Hertta: 100"]
+                               [:li "Ruutu: 80"]
+                               [:li "Risti: 60"]
+                               [:li "Pata: 40"]]
+                              [:h5 "Tikkipisteet"]
+                              [:ul
+                               [:li "Ässä: 11"]
+                               [:li "Kymppi: 10"]
+                               [:li "Kuningas: 4"]
+                               [:li "Rouva: 3"]
+                               [:li "Jätkä: 2"]
+                               [:li "Viimeinen tikki: +20"]]]
      ;; TODO This is a hack! We should update :state to :match-ended and show different view instead
      (when winning-team
        ^{:key "match-ended"} [:section#match-ended-info

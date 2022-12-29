@@ -27,6 +27,14 @@ main #player-hand li {
   right: 100px;
 }
 
-#scoring-rules-box h4 {
-  text-align: center;
+#scoring-rules-box ul {
+ list-style: none;
+}
+
+#scoring-rules-box li {
+ font-size: small;
+}
+
+#scoring-rules-box h5 {
+ text-align: center;
 }
