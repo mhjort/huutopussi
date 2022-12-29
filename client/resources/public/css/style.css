@@ -17,6 +17,15 @@ main #player-hand li {
   text-align: center;
 }
 
+#bids ul {
+  list-style: none;
+  padding-left: 0;
+}
+
+#bids li div {
+  text-align: center;
+}
+
 #startup-form {
   margin-bottom: 1em;
 }

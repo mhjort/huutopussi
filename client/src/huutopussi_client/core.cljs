@@ -177,7 +177,24 @@
           ""
           scores))
 
-(defn- show-game-actions [{:keys [trick-cards round-won-player phase]}]
+(defn- last-events-by-player [events relevant-event-types]
+  (let [relevant-events (filter #(some #{(:event-type %)} relevant-event-types) events)
+        players-in-order (distinct (map :player events))
+        events-by-player (group-by :player relevant-events)]
+    (reduce (fn [m player]
+              (if-let [last-event (-> (get events-by-player player) last)]
+                (conj m last-event)
+                m))
+            []
+            players-in-order)))
+
+(def test-events [{:event-type "folded" :player "a"}
+                  {:event-type "bid-won" :player "a"}
+                  {:event-type "bid-placed" :player "b" :value 50}
+                  {:event-type "bid-placed" :player "c" :value 55}
+                  {:event-type "bid-placed" :player "b" :value 80}])
+
+(defn- show-game-actions [{:keys [trick-cards round-won-player phase events]}]
   (when phase
     (case (keyword phase)
       :marjapussi
@@ -192,8 +209,16 @@
                                                                            [:img {:src (card-url card)
                                                                                   :width "100%"
                                                                                   :height "auto"}]])]]
-      :bidding [:div
-                [:h3 "Huudot"]])))
+      :bidding [:div#bids
+                [:h3 "Huudot"]
+                [:ul {:style {:display "flex"}}
+                 (for [{:keys [player event-type value]} (last-events-by-player (:bidding events)
+                                                                                ["bid-placed" "folded"])]
+                   ^{:key (str "bid-" player)} [:li {:style {:width "160px"}}
+                                                [:div player]
+                                                [:div (if (= "folded" event-type)
+                                                        "luovutti"
+                                                        value)]])]])))
 
 (defn- show-match-view []
   (let [player-name @(re-frame/subscribe [:player-name])
@@ -204,6 +229,7 @@
                 hand-cards
                 phase
                 teams
+                events
                 winning-team
                 current-round] :as game} @(re-frame/subscribe [:game])]
     (list
@@ -252,6 +278,7 @@
                                                                                                  :width "160px"
                                                                                                  :height "auto"}]]))]
                      (show-game-actions {:phase phase
+                                         :events events
                                          :trick-cards trick-cards
                                          :round-won-player round-won-player})]
      (events-view phase))))
