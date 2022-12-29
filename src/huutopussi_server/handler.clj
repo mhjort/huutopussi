@@ -47,7 +47,6 @@
                             (fn [request]
                               (handler (assoc request :matches matches))))]
     (-> #'app-routes
-        (wrap-reload)
         (wrap-with-matches)
         ;Note! This should be first because middleware sets json content type header
         ;only if there are no other content type headers already present
