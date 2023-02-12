@@ -6,6 +6,7 @@
             [ring.adapter.jetty :refer [run-jetty]]
             [ring.util.response :as resp]
             [clojure.tools.logging :as log]
+            [ring.middleware.ssl :refer [wrap-ssl-redirect wrap-forwarded-scheme wrap-hsts]]
             [ring.middleware.reload :refer [wrap-reload]]
             [ring.middleware.cors :refer [wrap-cors]]
             [ring.middleware.json :refer [wrap-json-response wrap-json-body]]
@@ -47,6 +48,9 @@
                             (fn [request]
                               (handler (assoc request :matches matches))))]
     (-> #'app-routes
+        (wrap-hsts)
+        (wrap-ssl-redirect)
+        (wrap-forwarded-scheme)
         (wrap-with-matches)
         ;Note! This should be first because middleware sets json content type header
         ;only if there are no other content type headers already present

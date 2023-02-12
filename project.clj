@@ -9,6 +9,7 @@
                  [org.clojure/tools.logging "1.2.4"]
                  [org.clojure/core.async "1.6.673"]
                  [org.clojure/math.combinatorics "0.1.6"]
+                 [ring/ring-ssl "0.3.0"]
                  [ring/ring-defaults "0.3.4"]
                  [ring/ring-json "0.5.1"]
                  [ring/ring-devel "1.9.6"]
