@@ -48,9 +48,6 @@
                             (fn [request]
                               (handler (assoc request :matches matches))))]
     (-> #'app-routes
-        (wrap-hsts)
-        (wrap-ssl-redirect)
-        (wrap-forwarded-scheme)
         (wrap-with-matches)
         ;Note! This should be first because middleware sets json content type header
         ;only if there are no other content type headers already present
@@ -62,9 +59,12 @@
         (wrap-json-body {:keywords? true})
         (wrap-exception-handling))))
 
-
 (defonce production-matches (atom {}))
-(defonce prod-app (create-app production-matches))
+(def redirect-to-https? (= "true" (System/getProperty "redirect-to-https")))
+(defonce prod-app (cond-> (create-app production-matches)
+                    redirect-to-https? (wrap-hsts)
+                    redirect-to-https? (wrap-ssl-redirect)
+                    redirect-to-https? (wrap-forwarded-scheme)))
 
 (defn create-dev-app [matches]
   (wrap-reload (create-app matches)))

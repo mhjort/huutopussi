@@ -1,1 +1,1 @@
-web: java $JVM_OPTS -jar target/huutopussi-standalone.jar
+web: java $JVM_OPTS -Dredirect-to-https=true -jar target/huutopussi-standalone.jar
