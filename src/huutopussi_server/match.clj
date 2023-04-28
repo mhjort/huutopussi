@@ -123,6 +123,7 @@
                                         (first (vals flatted-teams))
                                         (second (vals flatted-teams))))
         _ (log/info "All players ready. Starting match" (util/pretty-print match))
+        _ (log/info "Count of all matches in the server is" (count (keys @matches)))
         players-with-input-channels (util/map-vals #(assoc % :input-channel (chan)) players)]
     (start-match-loop matches teams id players-with-input-channels starting-players options model-fns))
   @matches)
