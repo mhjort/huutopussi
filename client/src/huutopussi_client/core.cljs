@@ -188,12 +188,6 @@
             []
             players-in-order)))
 
-(def test-events [{:event-type "folded" :player "a"}
-                  {:event-type "bid-won" :player "a"}
-                  {:event-type "bid-placed" :player "b" :value 50}
-                  {:event-type "bid-placed" :player "c" :value 55}
-                  {:event-type "bid-placed" :player "b" :value 80}])
-
 (defn- show-game-actions [{:keys [trick-cards round-won-player phase events]}]
   (when phase
     (case (keyword phase)
