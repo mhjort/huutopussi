@@ -371,10 +371,16 @@
        round-won-player (assoc-in [:db :client :waiting-for-player-action?] false)
        new-events (assoc :new-events {:new-events new-events})))))
 
+(defn- toggle-card-selection [chosen-card-indexes card-index]
+  (if (contains? (set chosen-card-indexes) card-index)
+    (remove #{card-index} chosen-card-indexes)
+    (conj chosen-card-indexes card-index)))
+
 (defn- handle-card-chosen-in-bidding [db card-index]
   (if (contains-action-with-id? "give-cards" (-> db :game :possible-actions))
     (let [hand-cards (-> db :game :hand-cards)
-          updated-card-indexes (distinct (conj (:chosen-card-indexes db) card-index))
+          chosen-card-indexes (:chosen-card-indexes db)
+          updated-card-indexes (toggle-card-selection chosen-card-indexes card-index)
           ;TODO Do not hardcode number of cards to give
           all-cards-chosen? (= 3 (count updated-card-indexes))
           chosen-card-indexes (if all-cards-chosen?
