@@ -38,9 +38,13 @@
 
 (defn- http-get [base-url {:keys [match-id] :as context}]
   (let [response (chan)
-        check-status (fn [{:keys [status]}]
-                       (let [updated-context context]
-                         (go (>! response [(= 200 status) updated-context]))))]
+        check-status (fn [{:keys [status body]}]
+                       (let [match-status (:status body)
+                             _ (log/info "Match status" match-status)
+                             updated-context context]
+                         (go (>! response [(= 200 status)
+                                           updated-context
+                                           (= "matched" match-status)]))))]
     (hc/get (str base-url match-id)
             {:http-client client
              :timeout response-timeout-in-ms
@@ -51,8 +55,21 @@
              :async? true} check-status)
     response))
 
-(comment
-  (<!! (http-post "http://localhost:3000/api/match" create-input-params {:user-id "1"})))
+(defn- http-put [base-url {:keys [match-id player-id] :as context}]
+  (let [response (chan)
+        check-status (fn [{:keys [status body]}]
+                       (log/info "Called ready for player id" player-id "and got response" body)
+                       (go (>! response [(= 200 status)
+                                         context])))]
+    (hc/put (str base-url match-id "/ready-to-start/" player-id)
+            {:http-client client
+             :timeout response-timeout-in-ms
+             :content-type :json
+             :coerce :always
+             :throw-exceptions? false
+             :as :json
+             :async? true} check-status)
+    response))
 
 (def simulation
   {:name "Huutopussi simulation"
@@ -60,9 +77,19 @@
                 :steps [{:name "Start match make"
                          :request (partial http-post "http://localhost:3000/api/match" create-input-params)}
                         {:name "Get match status"
-                         :request (partial http-get "http://localhost:3000/api/match/")}]}]})
+                         :request (partial http-get "http://localhost:3000/api/match/")}
+                        {:name "Get match status"
+                         :sleep-before (constantly 100)
+                         :request (partial http-get "http://localhost:3000/api/match/")}
+                        {:name "Mark as ready to play"
+                         :request (partial http-put "http://localhost:3000/api/match/")}
+                        ]}]})
+(comment
+  (<!! (http-post "http://localhost:3000/api/match" create-input-params {:user-id "1"}))
+  (gatling/run simulation {:concurrency 1 :requests 1})
+  )
 
 (defn -main [& _]
   (gatling/run simulation
-               {:concurrency 1
-                :requests 1}))
+               {:concurrency 10
+                :requests 200}))

@@ -9,5 +9,5 @@
                  [org.apache.logging.log4j/log4j-api "2.19.0"]
                  [org.apache.logging.log4j/log4j-core "2.19.0"]
                  [cheshire "5.11.0"]
-                 [clj-gatling "0.17.6"]]
+                 [clj-gatling "0.18.0-beta1"]]
   :main huutopussi-simulation.core)
