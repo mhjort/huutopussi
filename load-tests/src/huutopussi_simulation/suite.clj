@@ -14,13 +14,12 @@
                                       (let [updated-context (assoc context
                                                                    :match-id (:id body)
                                                                    :match-status (:status body)
-                                                                   ;TODO Huutopussi does not conform to json camelCase in response
                                                                    :player-id (:player-id body))]
                                         [(= 200 status) updated-context]))}
                          original-context))
 
 (comment
-  (<!! (start-matchmake {:user-id "1"}))
+  (<!! (start-matchmake {:user-id "5"}))
   )
 
 (defn- get-and-update-match-status [{:keys [match-id] :as original-context}]
@@ -87,6 +86,16 @@
    [{:name "Call google scenario"
      :steps [{:name "Call frontpage"
               :request (fn [ctx]
+                         (= 200 (:status (sc/http-request {:url "http://www.google.com"
+                                                           :method :get}
+                                                          ctx))))}]}]})
+
+(def google-async-simulation
+  {:name "Calling Google Async"
+   :scenarios
+   [{:name "Call google scenario"
+     :steps [{:name "Call frontpage"
+              :request (fn [ctx]
                          (sc/async-http-request {:url "http://www.google.com"
                                                  :method :get
                                                  :callback (constantly [true ctx])}
@@ -97,6 +106,7 @@
                                :callback (constantly [true {}])}
                               {}))
 (gatling/run google-simulation {:concurrency 5 :requests 20})
+(gatling/run google-async-simulation {:concurrency 100 :requests 5000})
 )
 
 
@@ -104,5 +114,5 @@
   (<!! (start-matchmake {:user-id "10"}))
 
   (gatling/run dynamic-simulation {:concurrency 4 :requests 10})
-  (gatling/run simulation {:concurrency 1 :requests 1})
+  (gatling/run simulation {:concurrency 4 :requests 30})
   )

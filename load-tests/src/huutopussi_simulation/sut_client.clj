@@ -11,27 +11,37 @@
 (def client (hc/build-http-client {:connect-timeout connect-timeout-in-ms
                                    :redirect-policy :always}))
 
+(defn http-request [{:keys [url method]} _]
+    (hc/request {:url url
+                 :method method
+                 :http-client client
+                 :timeout response-timeout-in-ms
+                 :content-type :json
+                 :coerce :always
+                 :throw-exceptions? false
+                 :as :auto}))
+
 (defn async-http-request [{:keys [endpoint url method payload-generator callback]} ctx]
-  (let [response (chan)
+  (let [return-channel (chan)
         payload (when payload-generator
                   (when-let [generated (payload-generator ctx)]
                     (json/generate-string generated)))
-        check-status (fn [resp]
-                       (log/info "RESP" resp)
-                       (go (>! response (callback resp ctx))))]
+        check-status (fn [response]
+                       (go (>! return-channel (callback response ctx))))]
     (hc/request {:url (or url (str sut-base-url endpoint))
                  :method method
                  :http-client client
                  :timeout response-timeout-in-ms
                  :content-type :json
+                 :coerce :always
                  :throw-exceptions? false
                  :body payload
                  :as :auto
                  :async? true} check-status)
-    response))
+    return-channel))
 
 (comment
-    (hc/request {:url "http://localhost:3000/index.html"
+    (:status (hc/request {:url "https://www.google.com"
                  :method :get
                  :http-client client
                  :timeout response-timeout-in-ms
@@ -39,16 +49,27 @@
                  :coerce :auto
                  :throw-exceptions? true
                  :body nil
-                 :as :json})
+                 :as :json}))
 
     (hc/request {:url "http://localhost:3000/index.html"
                  :method :get
                  :http-client client
                  :timeout response-timeout-in-ms
                  :content-type :json
-                 ;:coerce :auto
-                 :throw-exceptions? true
+                 :coerce :always
+                 :throw-exceptions? false
                  :body nil
+                 :as :auto
+                 :async? true} (fn [r] (log/info "RESP" r)))
+
+    (hc/request {:url "http://localhost:3000/api/match"
+                 :method :post
+                 :http-client client
+                 :timeout response-timeout-in-ms
+                 :content-type :json
+                 :coerce :always
+                 :throw-exceptions? false
+                 :body (json/generate-string {:playerName "Markus"})
                  :as :auto
                  :async? true} (fn [r] (log/info "RESP" r)))
     )
