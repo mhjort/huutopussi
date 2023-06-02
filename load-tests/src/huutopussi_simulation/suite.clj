@@ -1,6 +1,6 @@
 (ns huutopussi-simulation.suite
   (:require [huutopussi-simulation.sut-client :as sc]
-            [clj-gatling.core :as gatling]
+            [trombi.core :as trombi]
             [clojure.core.async :refer [<!!]]
             [clojure.tools.logging :as log]
             ))
@@ -105,14 +105,16 @@
                                :method :get
                                :callback (constantly [true {}])}
                               {}))
-(gatling/run google-simulation {:concurrency 5 :requests 20})
-(gatling/run google-async-simulation {:concurrency 100 :requests 5000})
+  (require '[trombi-gatling-highcharts-reporter.core])
+  (trombi/run google-simulation  {:concurrency 100 :reporters [trombi-gatling-highcharts-reporter.core/reporter]})
+(trombi/run google-simulation {:concurrency 5 :requests 20})
+(trombi/run google-async-simulation {:concurrency 100 :requests 5000})
 )
 
 
 (comment
   (<!! (start-matchmake {:user-id "10"}))
 
-  (gatling/run dynamic-simulation {:concurrency 4 :requests 10})
-  (gatling/run simulation {:concurrency 4 :requests 30})
+  (trombi/run dynamic-simulation {:concurrency 4 :requests 10})
+  (trombi/run simulation {:concurrency 4 :requests 30})
   )

@@ -1,10 +1,10 @@
 (ns huutopussi-simulation.core
-  (:require [clj-gatling.core :as gatling]
+  (:require [trombi.core :as trombi]
             [huutopussi-simulation.suite :as suite])
   (:gen-class))
 
 
 (defn -main [& _]
-  (gatling/run suite/dynamic-simulation
+  (trombi/run suite/dynamic-simulation
                {:concurrency 4
                 :requests 20}))
