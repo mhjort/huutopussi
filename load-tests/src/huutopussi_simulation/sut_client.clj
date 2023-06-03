@@ -1,7 +1,6 @@
 (ns huutopussi-simulation.sut-client
   (:require [cheshire.core :as json]
-            [clojure.core.async :refer [chan go >!]]
-            [clojure.tools.logging :as log]
+            [clojure.core.async :refer [chan go >! <!!]]
             [hato.client :as hc]))
 
 (def connect-timeout-in-ms 10000)
@@ -12,22 +11,49 @@
                                    :redirect-policy :always}))
 
 (defn http-request [{:keys [url method]} _]
-    (hc/request {:url url
-                 :method method
-                 :http-client client
-                 :timeout response-timeout-in-ms
-                 :content-type :json
-                 :coerce :always
-                 :throw-exceptions? false
-                 :as :auto}))
+  (hc/request {:url url
+               :method method
+               :http-client client
+               :timeout response-timeout-in-ms
+               :content-type :json
+               :coerce :always
+               :throw-exceptions? false
+               :as :auto}))
+
+(comment
+  (:status (http-request {:url "https://www.google.com"
+                          :method :get} {}))
+)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 (defn async-http-request [{:keys [endpoint url method payload-generator callback]} ctx]
   (let [return-channel (chan)
         payload (when payload-generator
                   (when-let [generated (payload-generator ctx)]
                     (json/generate-string generated)))
-        check-status (fn [response]
-                       (go (>! return-channel (callback response ctx))))]
+        handle-response (fn [response]
+                          (go (>! return-channel (callback response ctx))))]
     (hc/request {:url (or url (str sut-base-url endpoint))
                  :method method
                  :http-client client
@@ -37,39 +63,26 @@
                  :throw-exceptions? false
                  :body payload
                  :as :auto
-                 :async? true} check-status)
+                 :async? true} handle-response)
     return-channel))
 
 (comment
-    (:status (hc/request {:url "https://www.google.com"
-                 :method :get
-                 :http-client client
-                 :timeout response-timeout-in-ms
-                 :content-type :json
-                 :coerce :auto
-                 :throw-exceptions? true
-                 :body nil
-                 :as :json}))
+  (<!! (async-http-request {:url "https://www.google.com"
+                            :method :get
+                            :callback (fn [{:keys [status]} _]
+                                        (= 200 status))} {})))
 
-    (hc/request {:url "http://localhost:3000/index.html"
-                 :method :get
-                 :http-client client
-                 :timeout response-timeout-in-ms
-                 :content-type :json
-                 :coerce :always
-                 :throw-exceptions? false
-                 :body nil
-                 :as :auto
-                 :async? true} (fn [r] (log/info "RESP" r)))
 
-    (hc/request {:url "http://localhost:3000/api/match"
-                 :method :post
-                 :http-client client
-                 :timeout response-timeout-in-ms
-                 :content-type :json
-                 :coerce :always
-                 :throw-exceptions? false
-                 :body (json/generate-string {:playerName "Markus"})
-                 :as :auto
-                 :async? true} (fn [r] (log/info "RESP" r)))
-    )
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,4 @@
+
+#!/usr/bin/env bash
+
+java -Xmx512m -jar target/huutopussi-standalone.jar

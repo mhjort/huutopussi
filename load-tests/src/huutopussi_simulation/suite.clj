@@ -2,8 +2,51 @@
   (:require [huutopussi-simulation.sut-client :as sc]
             [trombi.core :as trombi]
             [clojure.core.async :refer [<!!]]
-            [clojure.tools.logging :as log]
-            ))
+            [clojure.tools.logging :as log])
+  (:import (java.time Duration)))
+
+(def google-simulation
+  {:name "Calling Google"
+   :scenarios
+   [{:name "Call google scenario"
+     :steps [{:name "Call frontpage"
+              :request (fn [ctx]
+                         (sc/async-http-request {:url "https://www.google.com"
+                                                 :method :get
+                                                 :callback (fn [{:keys [status]} _]
+                                                                (= 200 status))}
+                                                ctx))}]}]})
+(comment
+  (trombi/run google-simulation {:concurrency 5 :requests 20})
+
+  (trombi/run google-simulation {:concurrency 5 :duration (Duration/ofSeconds 1)})
+
+  ;With Graphical report
+  (require '[trombi-gatling-highcharts-reporter.core])
+  (trombi/run google-simulation  {:concurrency 100 :reporters [trombi-gatling-highcharts-reporter.core/reporter]}))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 (defn- start-matchmake [original-context]
   (sc/async-http-request {:endpoint "/api/match"
@@ -19,8 +62,13 @@
                          original-context))
 
 (comment
-  (<!! (start-matchmake {:user-id "5"}))
-  )
+  (<!! (start-matchmake {:user-id "5"})))
+
+
+
+
+
+
 
 (defn- get-and-update-match-status [{:keys [match-id] :as original-context}]
   (log/info "Polling match status for match id" match-id)
@@ -34,9 +82,13 @@
                          original-context))
 
 (comment
-  (let [[_ context] (<!! (start-matchmake {:user-id "1"}))]
-    (<!! (get-and-update-match-status context)))
-  )
+  (let [[_ context] (<!! (start-matchmake {:user-id "3"}))]
+    (<!! (get-and-update-match-status context))))
+
+
+
+
+
 
 (defn- mark-as-ready [{:keys [match-id player-id] :as original-context}]
   (log/info "Marking as ready to start for match id" match-id "and player id" player-id)
@@ -50,7 +102,7 @@
 
 (def simulation
   {:name "Huutopussi simulation"
-   :scenarios [{:name "Player join"
+   :scenarios [{:name "Player joining"
                 :steps [{:name "Start match make"
                          :request start-matchmake}
                         {:name "Get match status"
@@ -59,8 +111,28 @@
                          :sleep-before (constantly 100)
                          :request get-and-update-match-status}
                         {:name "Mark as ready to play"
-                         :request mark-as-ready}
-                        ]}]})
+                         :request mark-as-ready}]}]})
+(comment
+  (trombi/run simulation {:concurrency 4 :duration (Duration/ofSeconds 1)})
+  )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 (def dynamic-simulation
   {:name "Huutopussi simulation"
@@ -77,44 +149,17 @@
                                                       :request mark-as-ready} ctx]
                              :else (do
                                      (log/info "Ending scenario for player id" player-id)
-                                     nil))
-                           )}]})
-
-(def google-simulation
-  {:name "Calling Google"
-   :scenarios
-   [{:name "Call google scenario"
-     :steps [{:name "Call frontpage"
-              :request (fn [ctx]
-                         (= 200 (:status (sc/http-request {:url "http://www.google.com"
-                                                           :method :get}
-                                                          ctx))))}]}]})
-
-(def google-async-simulation
-  {:name "Calling Google Async"
-   :scenarios
-   [{:name "Call google scenario"
-     :steps [{:name "Call frontpage"
-              :request (fn [ctx]
-                         (sc/async-http-request {:url "http://www.google.com"
-                                                 :method :get
-                                                 :callback (constantly [true ctx])}
-                                                ctx))}]}]})
-(comment
-  (<!! (sc/async-http-request {:url "http://www.google.com"
-                               :method :get
-                               :callback (constantly [true {}])}
-                              {}))
-  (require '[trombi-gatling-highcharts-reporter.core])
-  (trombi/run google-simulation  {:concurrency 100 :reporters [trombi-gatling-highcharts-reporter.core/reporter]})
-(trombi/run google-simulation {:concurrency 5 :requests 20})
-(trombi/run google-async-simulation {:concurrency 100 :requests 5000})
-)
-
+                                     nil)))}]})
 
 (comment
-  (<!! (start-matchmake {:user-id "10"}))
+  (trombi/run dynamic-simulation {:concurrency 4 :duration (Duration/ofSeconds 1)})
 
-  (trombi/run dynamic-simulation {:concurrency 4 :requests 10})
-  (trombi/run simulation {:concurrency 4 :requests 30})
-  )
+
+
+  (trombi/run dynamic-simulation {:rate 200 :duration (Duration/ofSeconds 15)})
+
+
+
+  (trombi/run dynamic-simulation {:rate 500
+                                  :duration (Duration/ofSeconds 20)
+                                  :reporters [trombi-gatling-highcharts-reporter.core/reporter]}))
