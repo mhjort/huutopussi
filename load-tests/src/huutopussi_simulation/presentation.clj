@@ -3,7 +3,7 @@
 ;; Me
 ;; --
 
-;; Markus Hjort: A coder from Helsinki, Finland
+;; Markus Hjort: A coder & podcast host from Helsinki, Finland
 
 
 

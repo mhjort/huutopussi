@@ -48,6 +48,14 @@
 
 
 
+
+
+
+
+
+
+
+
 (defn- start-matchmake [original-context]
   (sc/async-http-request {:endpoint "/api/match"
                           :method :post
@@ -99,6 +107,10 @@
                                         [(= 200 status)
                                          updated-context]))}
                          original-context))
+
+
+
+
 
 (def simulation
   {:name "Huutopussi simulation"
